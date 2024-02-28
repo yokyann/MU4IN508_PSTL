@@ -75,7 +75,7 @@ let int_val_orelse i def =
 
 
 let rib_eq (a:rib) (b:rib) : bool = ptr_of_val(a) = ptr_of_val(b)
-
+let word_eqv (a:word) (b:word) : bool = a = b
 
 let get_car (rib : rib) : word= match rib with 
     (car, _,_ ) -> car
@@ -154,8 +154,6 @@ let nil_rib : rib = make_rib_of_ints 0 0 5
 
 
 
-(* primitive  *)
-(* creation d'un rib constitué de 3 Int *)
 
 let pop (stack:rib)  =
   match stack with
@@ -323,7 +321,6 @@ let rec list_tail lst i =
     let (car, cdr, tag )= ram.(ptr_of_val lst) in  
     list_tail (car,cdr, tag) (i - 1))
 let decode stack =
-
   let get_byte =
     let input_stream = Stream.of_string input in
     function () -> (Stream.next input_stream |> int_of_char)
@@ -451,25 +448,115 @@ let decode stack =
     set_global true_rib;
     set_global nil_rib;
   
-  main_proc;
+  main_proc
+  (* (define (get-cont stack)
+  (let loop ((stack stack))
+    (if (_rib? (_field2 stack)) stack (loop (_cdr stack)))))
+
+(define (get-var stack opnd)
+  (_field0 (if (_rib? opnd) opnd (_list-tail stack opnd))))
+
+(define (set-var stack opnd val)
+  (_field0-set! (if (_rib? opnd) opnd (_list-tail stack opnd)) val)) *)
 
 
+let get_cont stack =
+  let rec loop stack =
+    if is_rib_w (get_tag stack) then ptr_of_val stack else 
+      match (get_cdr stack) with 
+      | Triplet index -> loop (get_rib (Triplet index))
+      | _ -> invalid_arg "get_cont"
+    in loop stack
 
-
-
-
-
-
-
+let get_var stack opnd : rib =
+  if is_rib_w opnd then
+    get_rib opnd
+  else
+    list_tail stack (int_val opnd)
+  
+let set_var stack opnd value : unit =
+  if is_rib_w opnd then
+    let ropnd = get_rib opnd in
+    set_car ropnd value
+  else
+    set_car (list_tail stack (int_val opnd)) value
+  
 (* Decodage de la RVM *)
-let rec run (pc : rib)  stack = 
+let rec run (pc : rib)  (stack:rib) = 
   let instr = get_car (pc)
   and opnd = get_cdr (pc)
   and next = get_tag (pc)  
-  in
-  match instr with 
+  in 
+  match instr with
   (* halt *)
     Int 5 -> ()
+  (* jump/call *)
+  | Int 0 -> 
+    (let proc = get_var stack opnd in
+    let code = get_car proc in let
+    ncall = get_car stack in let
+    ignore = pop stack in 
+    if is_rib_w code then
+      (* calling a lambda *)
+      let i = ptr_of_val proc in
+      let new_cont = make_rib (Int 0) (Triplet i) (Int 0) in
+      let nargs = (int_val (get_car_triplet code)) lsr 1 in
+      let nargs_rib = make_rib (Int nargs) (Nil) (Nil) in
+      push_ram nargs_rib;
+      let vari = (int_val (get_car_triplet code)) land 1 in
+      if ((vari = 0 && (not (word_eqv (Int (int_val (get_car nargs_rib))) ncall)) ) || (vari = 1 && (nargs > (int_val ncall)))) then (failwith "*** Arity check failed") else 
+      if (vari = 1) then 
+        let rec rest_loop (rest:rib) (i:int) (stack:rib) =
+          (if 0 < i
+          then
+            let ir = ptr_of_val rest in
+            let tmp = make_rib (get_car stack) (Triplet ir) (Int pair_type) in
+            rest_loop tmp (i-1) (get_rib (get_cdr stack))
+          else
+            (* (set! stack (_cons rest _stack)) *)
+            let i = ptr_of_val stack in
+            let (car, cdr, tag) = ram.(i) in
+            let ir = ptr_of_val rest in
+            ram.(i) <- (Triplet ir, Triplet i, tag);
+            (* (set! nargs (+ 1 nargs)) *)
+            let i = ptr_of_val nargs_rib in
+            let (car, cdr, tag) = ram.(i) in
+            ram.(i) <- (Int ((int_val car) + 1), cdr, tag);
+          )
+        in
+        rest_loop nil_rib ((int_val ncall) - (int_val (get_car nargs_rib))) (stack)
+    else
+      ();
+    let rec loop (nargs: int) (new_stack : rib) (stack: rib) =
+      if 0 < nargs then
+        
+        let (car, cdr, tag) = stack in 
+        let ir = ptr_of_val new_stack in let ns = make_rib car (Triplet ir) (Int pair_type) in
+        loop (nargs-1) ns  ram.(int_val cdr)
+      else
+        (
+          if is_rib_w next then 
+            (set_car new_cont (Triplet (ptr_of_val stack));
+            set_tag new_cont next;)
+          else let k = get_cont stack in
+            set_car new_cont (get_car_triplet (Triplet k));
+            set_tag new_cont (get_tag_triplet (Triplet k));
+        );
+        run  (get_rib code) new_stack
+    in loop (int_val (get_car nargs_rib)) new_cont stack;
+    (* calling a primitive : code est un int *)
+  else 
+    let prim = primitives.(int_val code) in
+    prim stack;
+    if is_rib_w next then
+      let (car, cdr, tag) = ram.(int_val next) in
+      run (car, cdr, tag) stack 
+    else let cont = get_cont stack in
+      set_car stack (get_car_triplet (Triplet cont));
+      let n = get_tag (get_rib (Triplet cont))in 
+      run (get_rib n) stack
+
+    )
   (* set *)
   | Int 1 -> (
       if is_rib_w opnd then
@@ -477,7 +564,6 @@ let rec run (pc : rib)  stack =
          set_car opnd_r (get_car stack) ;
          run (get_rib next) (get_rib (get_cdr stack))) 
         (* (_field0-set! (if (-rib? opnd) opnd (list-tail stack opnd)) (_car stack)) *)
-
       else
         set_car (list_tail stack (int_val opnd)) (get_car stack);
       run (get_rib next) (get_rib (get_cdr stack)))
@@ -500,11 +586,8 @@ let rec run (pc : rib)  stack =
       (* run (if (eqv? (_car stack) _false) next opnd) (_cdr stack))) *)
       run (if (rib_eq (get_rib (get_car stack)) false_rib) then (get_rib next) else (get_rib opnd)) (get_rib (get_cdr stack)))
 
-  (* jump *)
-  (* call *)
   | _ -> invalid_arg "Not yet implemented"
 
-let input_bytes = Bytes.of_string input;;
-let taille = Bytes.length input_bytes ;;
+
 
 
