@@ -1,8 +1,4 @@
-(* (+ 8 9) (putchar(10))*)
-let input = "#rahctup,+,!tes-1dleif,1gra,,,,bir;*lu>m@mts>m?mki#!':nlkm!(:nlku!):nlkv1!*:nlkv6{"
-
-(* somme des n premiers nombres *)
-(* let input2 = "#di,!tes-1dleif,1gra,,,,bir;)lk>m?mki#!):nlkl!':nlkm!(:nlku{" *)
+let input = "#rahctup,+;*lu>m@mts>m?mki#!':nlkm!(:nlku!):nlkv1!*:nlkv6{"
 
 (* Constantes pour les types *)
 let pair_type = 0
@@ -35,27 +31,26 @@ type rib = word * word * word
 
 type ram = rib array
 
-let size_ram = 30000
+let size_ram = 10000
 let alloc_limit = size_ram/2 -1
 
 (* la mémoire *)
 let ram : ram = Array.make size_ram (Nil, Nil, Nil)  (* Déclaration de la variable globale ram *)
-let symtbl : ram = Array.make size_ram (Nil, Nil, Nil)  (* TODO : modif la size *)
-let pc = ref 0
+let symtbl : ram = Array.make size_ram (Nil, Nil, Nil)  (* Déclaration de la variable globale ram *)
+(* program counter : indice dans la ram *)
+let pc = ref (-1)
+(* le sommet de pile qui indique l'indice dasn la ram *)
 let sp = ref size_ram
 let st = ref (-1)
 let stbl = ref size_ram
-
-
-
-
 let pos = ref 0
+
 let make_rib (a:word) (b:word) (c: word) : rib = (a, b, c)
 
 
 let is_rib r : bool = match r with 
   | (_,_,_) -> true 
-  
+  | _ -> false 
 let is_rib_w (r:word) : bool = match r with 
   | Triplet _ -> true 
   | _ -> false
@@ -99,6 +94,12 @@ let get_car_triplet (rib : word) : word =
       v1
   | _ -> invalid_arg "get_car_triplet expected a triplet"
 
+let get_car_triplet_s (rib : word) : word =
+  match rib with 
+  | Triplet t -> let (v1, v2, v3) = symtbl.(t) in 
+      v1
+  | _ -> invalid_arg "get_car_triplet expected a triplet"
+  
 
 let get_cdr (rib : rib) : word= match rib with 
     (_, cdr,_ ) -> cdr
@@ -150,7 +151,7 @@ let tos stack = get_car ram.(!sp)
 let get_int_triplet (x : word) = 
   match x with 
     Triplet i -> i 
-|_ -> invalid_arg "expected a triplet" 
+  |_ -> invalid_arg "expected a triplet 1" 
 let get_rib (r : word ) : rib =
   Printf.printf " get rib %d\n" (get_int_triplet r); 
   match r with 
@@ -158,13 +159,14 @@ let get_rib (r : word ) : rib =
   | _ -> invalid_arg "get_rib expected a triplet"
 let pop ()  =
   let x = get_car ram.(!sp) in 
-  sp := get_int_triplet (get_cdr ram.(!sp)); 
+  if is_rib_w (get_cdr ram.(!sp)) then
+    sp := get_int_triplet (get_cdr ram.(!sp))
+  else
+    ram.(!sp) <- (Nil, Nil, Nil);
   x 
   
 let popr () = 
-  let x = get_car ram.(!sp) in
-  sp := get_int_triplet (get_cdr ram.(!sp));
-  get_rib x
+  let x = pop() in get_rib x
 
   
 let push_rib(rib : rib) : unit =
@@ -173,7 +175,7 @@ let push_rib(rib : rib) : unit =
     (* premier elemn de stack *)
     if i = size_ram then 
       (ram.(i-1) <- rib;
-      sp := i-1) 
+       sp := i-1) 
     else(
       ram.(i-1) <- rib;
       ram.(i-2) <- (Triplet (i-1), Triplet i, Int pair_type); 
@@ -198,14 +200,14 @@ let prim0 f = function () -> f () |> push_word
 let prim1_word f = function () -> pop () |> f |> push_word
 let prim1_rib f = function () -> pop () |> f |> push_rib
 let prim2 f = function () ->
-                let x = pop () in
-                let y = pop () in
-                f x y |> push_word
+  let x = pop () in
+  let y = pop () in
+  f x y |> push_word
 let prim3 f = function () ->
-                let x = pop () in
-                let y = pop () in
-                let z = pop () in
-                f x y z |> push_rib
+  let x = pop () in
+  let y = pop () in
+  let z = pop () in
+  f x y z |> push_rib
   
 
 let to_bool = function true -> true_rib | false -> false_rib
@@ -244,49 +246,49 @@ let prim2_bool f = function () ->
 
 let primitives = [|
 (* @@(primitives (gen body) *)
-    prim3 (fun z y x -> make_rib x y z);                                    (* @@(primitive (rib a b c))@@ *)
-    prim1_word(function x -> x);                                                (* @@(primitive (id x))@@ *)
-    (function () -> pop () |> ignore);                                      (* @@(primitive (arg1 x y))@@ *)
-    prim2 (fun y x -> y);                                                   (* @@(primitive (arg2 x y))@@ *)
-    close;          (* @@(primitive (close rib))@@ *)
-    prim1_rib (function Triplet _ -> true_rib | _ -> false_rib);                    (* @@(primitive (rib? rib) (use bool2scm))@@ *)
-    prim1_fields get_car ;                                                          (* @@(primitive (field0 rib))@@ *)
-    prim1_fields get_cdr;                                                          (* @@(primitive (field1 rib))@@ *)
-    prim1_fields get_tag;                                                          (* @@(primitive (field2 rib))@@ *)
-    prim2_fields (fun y x -> set_car x y);                                      (* @@(primitive (field0-set! rib))@@ *)
-    prim2_fields (fun y x -> set_cdr x y);                                      (* @@(primitive (field1-set! rib))@@ *)
-    prim2_fields (fun y x -> set_tag x y);                                      (* @@(primitive (field2-set! rib))@@ *)
-    prim2_bool (fun y x -> word_eqv x y);                             (* @@(primitive (eqv? x y) (use bool2scm))@@ *)
+  prim3 (fun z y x -> make_rib x y z);                                    (* @@(primitive (rib a b c))@@ *)
+  prim1_word(function x -> x);                                                (* @@(primitive (id x))@@ *)
+  (function () -> pop () |> ignore);                                      (* @@(primitive (arg1 x y))@@ *)
+  prim2 (fun y x -> y);                                                   (* @@(primitive (arg2 x y))@@ *)
+  close;          (* @@(primitive (close rib))@@ *)
+  prim1_rib (function Triplet _ -> true_rib | _ -> false_rib);                    (* @@(primitive (rib? rib) (use bool2scm))@@ *)
+  prim1_fields get_car ;                                                          (* @@(primitive (field0 rib))@@ *)
+  prim1_fields get_cdr;                                                          (* @@(primitive (field1 rib))@@ *)
+  prim1_fields get_tag;                                                          (* @@(primitive (field2 rib))@@ *)
+  prim2_fields (fun y x -> set_car x y);                                      (* @@(primitive (field0-set! rib))@@ *)
+  prim2_fields (fun y x -> set_cdr x y);                                      (* @@(primitive (field1-set! rib))@@ *)
+  prim2_fields (fun y x -> set_tag x y);                                      (* @@(primitive (field2-set! rib))@@ *)
+  prim2_bool (fun y x -> word_eqv x y);                             (* @@(primitive (eqv? x y) (use bool2scm))@@ *)
     (*  @@(primitive (< x y) @@ *)
-    prim2_bool (fun y x -> match x, y with
-                      | Int a, Int b -> (a < b)
-                      | _ -> invalid_arg "< arguments must be Ints");
+  prim2_bool (fun y x -> match x, y with
+      | Int a, Int b -> (a < b)
+      | _ -> invalid_arg "< arguments must be Ints");
     (*  )@@ *)
     (*  @@(primitive (+ x y) @@ *)
-    prim2 (fun y x -> match x, y with
-                      | Int a, Int b -> Int (a + b)
-                      | _ -> invalid_arg "+ arguments must be Ints");
+  prim2 (fun y x -> match x, y with
+      | Int a, Int b -> Int (a + b)
+      | _ -> invalid_arg "+ arguments must be Ints");
     (*  )@@ *)
     (*  @@(primitive (- x y) @@ *)
-    prim2 (fun y x -> match x, y with
-                      | Int a, Int b -> Int (a - b)
-                      | _ -> invalid_arg "- arguments must be Ints");
+  prim2 (fun y x -> match x, y with
+      | Int a, Int b -> Int (a - b)
+      | _ -> invalid_arg "- arguments must be Ints");
     (*  )@@ *)
     (*  @@(primitive ( * x y) @@ *)
-    prim2 (fun y x -> match x, y with
-                      | Int a, Int b -> Int (a * b)
-                      | _ -> invalid_arg "* arguments must be Ints");
+  prim2 (fun y x -> match x, y with
+      | Int a, Int b -> Int (a * b)
+      | _ -> invalid_arg "* arguments must be Ints");
     (*  )@@ *)
     (*  @@(primitive (quotient x y) @@ *)
-    prim2 (fun y x -> match x, y with
-                      | Int a, Int b -> Int (a / b)
-                      | _ -> invalid_arg "quotient arguments must be Ints");
+  prim2 (fun y x -> match x, y with
+      | Int a, Int b -> Int (a / b)
+      | _ -> invalid_arg "quotient arguments must be Ints");
     (*  )@@ *)
-    prim0 (function () -> Int (getchar ()));                                                                (* @@(primitive (getchar))@@ *)
-    prim1_word (function Int ch -> Int (putchar ch) | _ -> invalid_arg "putchar argument must be Int");  (* @@(primitive (putchar x))@@ *)
-    prim1_word (function Int status -> exit status | _ -> invalid_arg "exit argument must be Int")           (* @@(primitive (exit x))@@ *)
+  prim0 (function () -> Int (getchar ()));                                                                (* @@(primitive (getchar))@@ *)
+  prim1_word (function Int ch -> Int (putchar ch) | _ -> invalid_arg "putchar argument must be Int");  (* @@(primitive (putchar x))@@ *)
+  prim1_word (function Int status -> exit status | _ -> invalid_arg "exit argument must be Int")           (* @@(primitive (exit x))@@ *)
 (*  )@@ *)
-  |]
+|]
 
 (* retourne le prochain octet du flux converti en entier. *)
 (* let get_byte index =
@@ -294,27 +296,51 @@ let primitives = [|
    if index >= Bytes.length input_bytes then
     None
    else
-    let byte = Bytes.get input_bytes (index) in
-    Some (int_of_char byte)
+let byte = Bytes.get input_bytes (index) in
+Some (int_of_char byte)
 
 
-   let get_code index =
-   let x = get_byte (index+1) in
-   match x with
-   | Some x -> (if (x)<0 then 57 else (x-35))
-   | None -> invalid_arg "end of input"
+let get_code index =
+  let x = get_byte (index+1) in
+  match x with
+  | Some x -> (if (x)<0 then 57 else (x-35))
+  | None -> invalid_arg "end of input"
 
-   let rec get_int n index=
-   let x = get_code (index+1) in
-   let n = n * 46 in
-   if x < 46 then n + x else get_int (n + x - 46) (index+1) *)
-let rec list_tail lst i =
-  if 0 < i then 
-    list_tail (get_rib (get_cdr lst)) (i-1)
+let rec get_int n index=
+  let x = get_code (index+1) in
+  let n = n * 46 in
+  if x < 46 then n + x else get_int (n + x - 46) (index+1) *)
+
+(* renvoie *)
+let rec list_tail (inram:bool) (ptr:int) i =
+  if 0 = i then 
+    Triplet ptr
   else
-    lst
-let int_to_char (n : int) : char =
-  Char.chr n
+    if inram then
+      (if is_rib_w (get_cdr (ram.(ptr))) then
+        list_tail true (get_int_triplet (get_cdr (ram.(ptr))) ) (i-1)
+      else
+        get_cdr (ram.(ptr)))
+    else
+      (if is_rib_w (get_cdr (symtbl.(ptr))) then
+        list_tail false (get_int_triplet (get_cdr (symtbl.(ptr))) ) (i-1)
+      else
+        get_cdr (symtbl.(ptr)))
+
+
+
+let get_byte = function () ->
+  let c = String.get input (!pos) in
+  (pos := !pos + 1;
+   int_of_char c)
+  
+let get_code () =
+  let x = (get_byte ()) - 35 in if x < 0 then 57 else x
+
+let rec get_int n =
+  let x = get_code () in
+  let n = n * 46 in
+  if x < 46 then n + x else get_int (n + x - 46)
 
 let is_pair (x:rib) = 
   match x with 
@@ -323,117 +349,56 @@ let is_pair (x:rib) =
   | Triplet _,  Int _ , Int 0 -> true
   | Triplet _, Triplet _, Int 0 -> true
   | _ -> false
-  
+
 let not_nil_cdr (w : word)  =
   match w with 
     Nil -> false
   | _ -> true
 
-let get_cdr_sym (rib : rib) =
-  (match rib with 
-    (_, cdr, _) -> cdr)
-
-let get_car_sym (rib : rib) =
-  (match rib with 
-    (car, _, _) -> car)
-
-let get_rib_sym (w : word) =
-  match w with 
-    Triplet i -> symtbl.(i)
-  | _ -> invalid_arg "get_rib_sym"
-
-let rec print_rib (rib : rib) : unit =
-    let car = get_car rib in
-    let cdr = get_cdr rib in
-    let tag = get_tag rib in
-    if is_rib_w car then print_rib (get_rib car) else
-      if is_rib_w cdr then (print_rib (get_rib cdr)) else
-        if is_rib_w tag then print_rib (get_rib tag) else
-          Printf.printf "car=%d cdr=%d tag=%d\n" (int_val car) (int_val cdr) (int_val tag)
 
 
-let rec chars2str(lst : rib) : unit =
-    if is_pair lst && not_nil_cdr (get_cdr_sym lst) then
-      if is_rib_w (get_cdr_sym lst) then
-        let c = (char_of_int (int_val (get_car_sym lst))) in
-        Printf.printf "%c" c;
-        (let next = get_cdr_sym lst in
-         chars2str (get_rib_sym next))
-      else
-        (let c = get_car_sym lst in
-         match c with
-         | Int i -> Printf.printf "%c" (char_of_int i)
-         | _ -> invalid_arg "chars2str")
-    else
-      (invalid_arg "chars2str arg")
-
-let get_byte = function () ->
-  let c = String.get input (!pos) in
-    (pos := !pos + 1;
-    int_of_char c)
-  
-let get_code () =
-  let x = (get_byte() - 35) in if x < 0 then 57 else x
-
-let rec get_int n =
-  let x = get_code () in
-  let n = n * 46 in
-  if x < 46 then n + x else get_int (n + x - 46)
-
-
-
-let rec length lst =
-  if is_pair lst && not_nil_cdr (get_cdr lst) then
-    if is_rib_w (get_car lst) then
-      1 + length (get_rib (get_cdr lst))
-    else
-    1 
-  else
-    0
         
 let push2_symtbl_rib(rib : rib) (tag : word): unit =
   let i = !st in
-  if i < alloc_limit then
+  if i < size_ram then
     (* premier elemn de stack *)
     if i = -1 then 
       (symtbl.(i+1) <- rib;
-      symtbl.(i+2) <- (Triplet (i+1), Int 0, tag);
-      st := i+2) 
+       symtbl.(i+2) <- (Triplet (i+1), Int 0, tag);
+       st := i+2) 
     else(
       symtbl.(i+1) <- rib;
       symtbl.(i+2) <- (Triplet (i+1), Triplet i, tag); 
       st := i+2) 
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 7"
     (* gc *)
 
 let push_symtbl_rib (rib : rib) :unit =
   let i = !st in
-  if i < alloc_limit then
-    (* premier elemn de stack *)
-    if i = -1 then 
+  if i < size_ram then
       (symtbl.(i+1) <- rib;
-      st := i+1) 
-    else(
-      symtbl.(i+1) <- rib;
-      st := i+1) 
+      st := i+1)
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 6"
     (* gc *)
 
 let push_symtbl_word (w : word) :unit =
   let i = !st in
-  if i < alloc_limit then
+  if i < size_ram then
     (* premier elemn de stack *)
     if i = -1 then 
       (symtbl.(i+1) <- (w, Int 0, Int pair_type);
-      st := i+1) 
+       st := i+1) 
     else(
       symtbl.(i+1) <- (w, Triplet i, Int pair_type); 
       st := i+1) 
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 5"
     (* gc *)
+
+
+
 
 let push2_symtbl_word (car : word)(tag : word) : unit =
   let i = !st in
@@ -442,17 +407,18 @@ let push2_symtbl_word (car : word)(tag : word) : unit =
     if i = -1 then (symtbl.(i+1) <- (car, Int 0, tag);  st := i+1) else
       (symtbl.(i+1) <- (car, Triplet (i), tag); st := i+1)
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 4"
     (* gc *)
 
-let push2_symtbl_cdr (cdr : word)(tag : word) : unit =
+let push2_symtbl_cdr (cdr : word) (tag : word) : unit =
+  Printf.printf "%d\n" !st;
   let i = !st in
   if i < alloc_limit then
     (* premier elemn de stack *)
     if i = -1 then (symtbl.(i+1) <- (Int 0, cdr, tag);  st := i+1) else
       (symtbl.(i+1) <- (Triplet i, cdr, tag); st := i+1)
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 3"
     (* gc *)
 
 let push_rib_stbl(rib : rib) : unit =
@@ -461,162 +427,313 @@ let push_rib_stbl(rib : rib) : unit =
     (* premier elemn de stack *)
     if i = size_ram then 
       (ram.(i-1) <- rib;
-      stbl := i-1) 
+       stbl := i-1) 
     else(
       ram.(i-1) <- rib;
       ram.(i-2) <- (Triplet (i-1), Triplet i, Int pair_type); 
       stbl := i-2) 
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 1"
     (* gc *)
 
+
 let push_word_stbl (car : word) : unit =
+  Printf.printf "done1";
   let i = !stbl in
   if i > alloc_limit then
+    
     (* premier elemn de stack *)
-    if i = size_ram then (ram.(i-1) <- (car, Int 0, Int pair_type); stbl := !sp-1) else
-      (ram.(i-1) <- (car, Triplet (i), Int pair_type); stbl := i-1)
+    if i = size_ram then (Printf.printf "done2"; (symtbl.(i-1) <- (car, Int 0, Int pair_type); stbl := !stbl-1) )else
+      (symtbl.(i-1) <- (car, Triplet (i), Int pair_type); stbl := i-1)
+  else
+    invalid_arg "stack overflow 2 "
+    (* gc *)
+
+let get_cdr_sym (rib : rib) =
+  (match rib with 
+     (_, cdr, _) -> cdr)
+
+let get_car_sym (rib : rib) =
+  (match rib with 
+     (car, _, _) -> car)
+
+let get_rib_sym (w : word) =
+  match w with 
+    Triplet i -> symtbl.(i)
+  | _ -> invalid_arg "get_rib_sym"
+
+let rec chars2str(lst : rib) : unit =
+  if is_pair lst && not_nil_cdr (get_cdr_sym lst) then
+    if is_rib_w (get_cdr_sym lst) then
+      let c = (char_of_int (int_val (get_car_sym lst))) in
+      Printf.printf "%c" c;
+      (let next = get_cdr_sym lst in
+       chars2str (get_rib_sym next))
+    else
+      (let c = get_car_sym lst in
+       match c with
+       | Int i -> Printf.printf "%c" (char_of_int i)
+       | _ -> invalid_arg "chars2str")
+  else
+    (invalid_arg "chars2str arg")
+
+let length lst =
+  let rec aux l acc =
+    if is_pair l then
+      match get_cdr l with
+      | Int _ -> acc +1
+      | Triplet i -> aux (get_rib_sym (Triplet i)) (acc + 1)
+      | _ -> invalid_arg "length"
+    else
+      acc
+  in
+  aux lst 0
+
+
+let push_symtbl (rib:rib) : unit =
+  let i = !st in
+  if i < alloc_limit then
+    (* premier elemn de stack *)
+    if i = -1 then 
+      (symtbl.(i+1) <- rib;
+       st := i+1) 
+    else(
+      symtbl.(i+1) <- rib;
+      st := i+1) 
   else
     invalid_arg "stack overflow"
     (* gc *)
 
-
-let create_sym = function () ->
+let create_sym (i:int)= 
   (* rib *list = alloc_rib(name, lst_length(name), STRING_TAG); *)
-  let len = length symtbl.(!st) in
-  push2_symtbl_cdr (Int len) (Int string_type);
+  Printf.printf "hello mdrfhtgjh %d\n" !st;
+  let len = length symtbl.(i) in
+  Printf.printf "hello %d\n" len;
+
+  push_symtbl_rib (make_rib (Triplet i) (Int len) (Int string_type));
 
   (* rib *sym = alloc_rib(FALSE, TAG_RIB(list), SYMBOL_TAG); *)
-  push2_symtbl_rib nil_rib (Int symbol_type);
+  push2_symtbl_word (Triplet 2) (Int symbol_type);
 
   (* rib *root = alloc_rib(TAG_RIB(sym), symbol_table, PAIR_TAG); *)
   push_word_stbl (Triplet (!st)) 
+      
+let push_symtbl_word_accum (car: word) (cdr:word) =
+  let i = !st in
+  if i < alloc_limit then
+    (* premier elemn de stack *)
+    if i = -1 then 
+      (symtbl.(i+1) <- (car, cdr, Int pair_type);
+       st := i+1) 
+    else(
+      symtbl.(i+1) <- (car, cdr, Int pair_type);
+      st := i+1) 
+  else
+    invalid_arg "stack overflow"
+    (* gc *)
+    
 
-  
-(* construction de la table des symbole (EN COURS DE DEBUG)*)
 let build_symtbl () : unit =
+  push_symtbl nil_rib;
+  push_symtbl nil_rib;
+  push_symtbl (Triplet 0, Triplet 1, Int singleton_type);
+  push_symtbl nil_rib;
   let rec loop1 n :unit =
     if 0 < n then 
-      ( push_symtbl_rib nil_rib;
-        create_sym();
+      ( push_symtbl nil_rib;
+        create_sym(!st);
         loop1 (n-1)) 
     else 
-        let rec loop3  = function()->
-          let x = get_byte () in
-          Printf.printf "x=%d\n" x;
-          (* on a la , separates symbols *)
-          if x = 44 then (create_sym()) else
+      let rec loop3 (i:int) =  
+        let x = get_byte () in
+        Printf.printf "x=%d\n" x;
+        Printf.printf "c = %c\n" (char_of_int x);
+        Printf.printf "i=%d\n" i;
+                       (* on a la , separates symbols *)
+        if x = 44 then (Printf.printf "ici\n";create_sym(i); loop3(i)) else
             (* ; terminates symbol list *)
-          if x=59 then 
-            loop3 ()
-          else
-            push_symtbl_word (Int x)
-        in
-        loop3()
-  in
-  let n = get_int 0 in
-  loop1 n;
-
-(* A REFAIRE -------------------------------------------------------------------------- *)
-let decode() : rib =
-
-  (* Graphe d'instruction *)
-  let rec decode_loop stack :rib = 
-    let sym n = 
-      get_car (list_tail symtbl n) 
-    in
-    let add_instruction (op:word) (opnd:word) (stack:rib) =
-      let i = ptr_of_val stack in
-      let instr = make_rib (op) (opnd) (Triplet i) in
-      push_ram instr; let i = ptr_of_val instr in
-      set_car stack (Triplet i);
-      decode_loop stack in
-    let x = get_code () in
-    let rec loop (op:word) n = 
-      let codes = [| 20; 30; 0; 10; 11; 4 |]
-      in
-      let calcul_opnd n d op =
-        if (n<d ) then 
-          if ((int_val op) < 3) then sym n else (Int n)
+        if x=59 then 
+          ( create_sym(i);
+            Printf.printf "fin de la boucle")
         else
-        if (n = d) then (Int (get_int 0)) else sym (get_int ((n-d)- 1))
+          (push_symtbl_word_accum (Int x) (Triplet (i)); loop3 (!st))
       in
-      let calcul_stack op stack : rib=
-        if (int_val op) = 0 then (push_w (stack) (Int 0 ); stack) else stack
-      in
-      let 
-        d = codes.(int_val op) in
-      if (d+2) < n then
-        loop (Int ((int_val op) + 1)) (n-(d+3))
-      else
-      if 90 < x then 
-        add_instruction (Int instr_if) (get_car stack) stack  (*if *)
-      else 
-        let stack = (calcul_stack op stack) in
-        
-        let opnd = calcul_opnd n d op in
-        if ( 4< int_val op ) then 
-          let tmp = make_rib opnd (Int 0) (get_car stack) in
-          push_ram tmp;
-          let tmp = ptr_of_val tmp in
-          let proc = make_rib (Triplet tmp) (Nil) (Int procedure_type) in push_ram proc;
-          let ignore = pop stack in 
-          (if is_rib stack then
-             let ip = ptr_of_val proc in 
-             add_instruction (Int instr_const) (Triplet ip) stack  (*const**)
-           else
-             proc)
-        else 
-        if ( 0 < (int_val op)) then 
-          add_instruction (Int ((int_val op)-1)) opnd stack 
-        else
-          add_instruction (Int 0) opnd stack
-
-        
-    in 
-    loop (Int 0) (x)
+      loop3 (!st)
   in
-  let main_proc = decode_loop nil_rib in
-  (* set predefined globals (always 4 first in the symbol table) *)
-  let set_global (value:rib) = 
-    let x = ptr_of_val value in 
-    match (get_car symtbl) with
-      Triplet i -> let (car, cdr, tag) = ram.(i) in set_car (car, cdr, tag) (Triplet x);
-    | _ -> invalid_arg "set_global"
-  in 
-  push_ram symtbl;
-  let i = ptr_of_val symtbl in
-  let p0 = make_rib (Int 0) (Triplet i) (Int procedure_type) in
-  push_ram p0;
-  set_global p0;  (*rib  = primitive 0*)
-  set_global false_rib;
-  set_global true_rib;
-  set_global nil_rib;
-  main_proc
-  (* (define (get-cont stack)
-     (let loop ((stack stack))
-     (if (_rib? (_field2 stack)) stack (loop (_cdr stack)))))
+  let n = get_int 0 in (Printf.printf "int %d\n" n;
+                        loop1 n)
+  
+let get_rib_sym (w : word) =
+  match w with 
+    Triplet i -> symtbl.(i)
+  | _ -> invalid_arg "get_rib_sym"    
 
-     (define (get-var stack opnd)
-     (_field0 (if (_rib? opnd) opnd (_list-tail stack opnd))))
+           
 
-     (define (set-var stack opnd val)
-     (_field0-set! (if (_rib? opnd) opnd (_list-tail stack opnd)) val)) *)
+let rec print_rib (rib : rib) : unit =
+  let print_value (v : word) : unit =
+    match v with
+    | Int i -> Printf.printf "%d" i
+    | Triplet t -> print_rib (get_rib_sym (Triplet t))
+    | Nil -> Printf.printf "Nil"
+  in
+  let print_separator () = Printf.printf "," in
+  let print_open_bracket () = Printf.printf "[" in
+  let print_close_bracket () = Printf.printf "]" in
+  match rib with
+  | (a, b, c) ->
+      print_open_bracket ();
+      print_value a; print_separator ();
+      print_value b; print_separator ();
+      print_value c;
+      print_close_bracket ()
+        
+
+let set_global (value:rib) = (
+  push_symtbl_rib value;
+  set_car_triplet (get_car_triplet (Triplet !stbl)) (Triplet !st);)
 
 
-let get_cont stack =
-  let rec loop stack =
-    if is_rib_w (get_tag stack) then ptr_of_val stack else 
-      match (get_cdr stack) with 
-      | Triplet index -> loop (get_rib (Triplet index))
-      | _ -> invalid_arg "get_cont"
-  in loop stack
 
-let get_var stack opnd : rib =
-  if is_rib_w opnd then
-    get_rib opnd
+let push2_stack_word(w : word) (tag : word): unit =
+    let i = !sp in
+    if i > alloc_limit then
+      (* premier elemn de stack *)
+      if i = size_ram then 
+        (ram.(i-1) <- (w, Int 0, tag);
+         sp := i-1) 
+      else(
+        ram.(i-1) <- (w, Triplet (i), tag);
+        ram.(i-2) <- (Triplet (i-1), Triplet i, Int pair_type); 
+        sp := i-2) 
+    else
+      invalid_arg "stack overflow"
+      (* gc *)
+
+
+
+let push_stack (rib : rib) : unit =
+  let i = !sp in
+  if i > alloc_limit then
+    (* premier elemn de stack *)
+    if i = size_ram then 
+      (ram.(i-1) <- rib;
+       sp := i-1) 
+    else(
+      ram.(i-1) <- rib;
+      ram.(i-2) <- (Triplet (i-1), Triplet i, Int pair_type); 
+      sp := i-2) 
   else
-    list_tail stack (int_val opnd)
+    invalid_arg "stack overflow"
+    (* gc *)
+let codes = [| 20; 30; 0; 10; 11; 4 |]
+
+let push_heap_rib (rib : rib) : unit =
+  let i = !pc in
+  if i < size_ram then
+    (* premier elemn de stack *)
+    if i = -1 then 
+      (ram.(i+1) <- rib;
+       pc := i+1) 
+    else(
+      ram.(i+1) <- rib;
+      ram.(i+2) <- (Triplet (i+1), Triplet i, Int pair_type);
+      pc := i+2) 
+  else
+    invalid_arg "stack overflow"
+    (* gc *)
+
+let push_heap_r (rib : rib) : unit =
+  let i = !pc in
+  if i < size_ram then
+    (* premier elemn de stack *)
+    if i = -1 then 
+      (ram.(i+1) <- rib;
+       pc := i+1) 
+    else(
+      ram.(i+1) <- rib;
+      pc := i+1) 
+  else
+    invalid_arg "stack overflow"
+    (* gc *)
+let decode = function () ->(
+  (* Graphe d'instruction *)
+  let rec decode_loop () : word = 
+    let sym (n:int) = 
+      get_car_triplet_s (list_tail true (!stbl) (n)) 
+    in
+    let add_instruction (op:int) (opnd :word) =
+    (* TODO *)
+    (* (_set-car! stack (_rib op opnd (_car stack))) *)
+      let x = make_rib (Int op) opnd (get_car_triplet (Triplet !sp)) in
+        ignore(pop());
+        push_stack x;
+        decode_loop ()
+    in
+    (* calcul opnd *)
+    let calcul_opnd (n:int) (d:int) (op:int) = 
+      if (n< d) then 
+        if op <3 then sym n else Int(n)
+      else
+        if n = d then Int (get_int 0) else
+          sym ((n - (d-1)))
+    in
+
+
+    let x = get_code () in
+    let rec loop (op:int) (n:word) = 
+      let d = codes.(op) 
+      in
+      if (d+2) < (int_val n) then
+        loop (op + 1) (Int ((int_val n)-d+3))
+
+      else
+      if 90 < x then (*if *)(
+        let n= pop()in 
+        add_instruction 4 n)
+      else 
+        (
+          if op = 0 then push2_stack_word (Int 0) (Int 0) else ();
+          let opnd = calcul_opnd (int_val n) d (op) in
+          if 4 < op then
+            (
+              push_heap_r (make_rib opnd (Int 0) (pop())) ;
+              push_heap_rib (make_rib (Triplet !pc) (Int 0) (Int procedure_type));
+              if ram.(!sp) != (Nil, Nil, Nil) then
+                add_instruction (instr_const) (Triplet !pc)
+              else (Triplet !pc)
+            )
+          else
+            if (0<op) then
+              add_instruction (op-1) opnd
+            else
+              add_instruction (0) opnd
+        )
+
+      
+    in let x = get_code () in
+    loop (0) (Int x)
+  in
+  let main_proc = decode_loop() in 
+  pc := get_int_triplet (get_tag_triplet (get_car_triplet main_proc));
+  )
+
+let get_cont  = function () ->
+  let rec loop (i:int) : word =
+    if not (is_rib_w (get_tag (ram.(i)))) then
+      (if is_rib_w (get_cdr (ram.(i))) then
+        loop (get_int_triplet (get_cdr (ram.(i))))
+      else
+        (get_cdr (ram.(i))))
+    else
+      (Triplet i)
+  in loop !sp
+
+let get_opnd o = 
+  if is_rib_w o then
+    o
+  else
+    list_tail true (!sp) (int_val o)
 
 let set_var stack opnd value : unit =
   if is_rib_w opnd then
