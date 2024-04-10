@@ -15,9 +15,9 @@ let instr_if = 4;;
 let instr_halt = 5;;
 
 type word = 
-  | Nil of int<8>
-  | Int of int<8>
-  | Triplet of int<8>  
+  | Nil of int<32>
+  | Int of int<32>
+  | Triplet of int<32>  
 ;;
 
 type rib = word * word * word ;;
@@ -27,14 +27,21 @@ let size_ram = 90000;;
 let alloc_limit = size_ram / 2 -1;;
 
 let ram = array_create size_ram ;; 
+let tab_pointer = array_create 5;;
 
 (* program counter : indice dans la ram *)
-let pc = -1;;
+let pc = ref(-1);;
 (* le sommet de pile qui indique l'indice dasn la ram *)
-let sp = size_ram;;
-let st = -1;;
-let stbl = -1;;
-let pos = 0;;
+let sp = ref (size_ram);;
+let st = ref(-1);;
+let stbl = ref(-1);;
+let pos = ref(0);;
+
+tab_pointer.(0) <- pc;;
+tab_pointer.(1) <- sp;;
+tab_pointer.(2) <- st;;
+tab_pointer.(3) <- stbl;;
+tab_pointer.(4) <- pos;;
 
 let make_rib (((a,b)),c) : rib = (a, b, c);;
 
@@ -144,7 +151,7 @@ let false_rib : rib = make_rib_of_ints (0,0,5);;
 let true_rib : rib = make_rib_of_ints (0,0,5);;
 let nil_rib : rib = make_rib_of_ints (0,0,5);;
 
-let tos = get_car(ram.(sp));;
+let tos = get_car(ram.(!sp));;
 
 let get_int_triplet (x : word) = 
   match x with 
@@ -160,14 +167,16 @@ let get_rib (r : word ) : rib =
 end
 ;;
 
-(* let pop (sp, ram) =
-  let x = get_car(ram.(sp)) in
-  let new_sp = 
-    if is_rib_w (get_cdr(ram.(sp))) then
-      get_int_triplet (get_cdr(ram.(sp)))
-    else
-      sp - 1 in
-  (x, new_sp, ram);; *)
+
+let pop ()  =
+let x = get_car (ram.(!(tab_pointer.(1)))) in 
+if is_rib_w (get_cdr( ram.(!(tab_pointer.(1))))) then
+  (tab_pointer.(1)) := get_int_triplet (get_cdr (ram.(!(tab_pointer.(1)))))
+else
+  ram.(!(tab_pointer.(1))) <- (Nil(0), get_cdr( ram.(!(tab_pointer.(1)))),  get_tag( ram.(!(tab_pointer.(1))))); 
+x 
+;;
+
 
 let main() = 
     print_string "Test";;
