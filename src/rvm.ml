@@ -1,5 +1,9 @@
-let input = "O;(lu>mFliM!0(l_>m?l^}'!*,li$*ma@l_>m?l^*ma@l_>m?l^>m?lvS#~NmBmvS#_*ma@l_>m?l^*ma@l_>m?l^>m?lvS#~Nm^~^BmvE^*ma@l_>m?lvS;>m?lvS#~Bmt^*ma@l_>m?lvS9>m?lvS#~Bmv0^*ma@l_>m?lvS5>m?lvS#~Bmu^*ma@l_>m?l^~Ql`Il^~Dl^}'!5,li$,li$5l@l^>mFlIl^~Dl^>m?lvC~Dl^{!11lYAl^0mvS7vF~YBl^/lYJl^>m?lvF~YCl^*mi$Kl^~Rl^1lYIl^~Vl^(lvL>mLl@l^>mFlIl^>m?lvK~Dl^0mvLvK~YDl^0mvS;vF~Bmi%^0mvS-vF~Ql^{!/1l^(lvE>mAmi%Kl^>m?lvE~Rl^{!BEll!JiN!CElo!4iN!=#nnOl_^{!;Eln!3,l^3m_`~SmakPmb^MmUmYGmu``vR%Wmu^}'!A8=lJmi&^8=lPmJmi&Um`kvP~Smk^{>mYFmki#!IiL!?Elm!8,lk6mOl@l_l~Dl^{!D+mi&^{!)iL!2iN!9#nk`^}'!-Elk!:+mi$^{!.8Kl,li$+mbYEl^~YHl^{{!M:nnp:nk:nk:nk:nk:nki&vS6vS3vS3vS,vS/!,:nlkl!':nlkm!7:nlkn!K:nlko!H:nlkp!N:nlkq!L:nlkr!E:nlks!F:nlku!+:nlkv/!<:nlkv0!6:nlkv1!>:nlkv2!G:nlkv3!@:nlkv4!(:nlkv6{"
+(* RVM code that prints HELLO! *)
+(* @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92) @@ *)
+let input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y";;
+(* )@@ *)
 
+Printf.printf "input :\n%s\n" input;;
 
 let count_symtbl input = 
   let rec loop i count = 
@@ -47,7 +51,7 @@ type rib = word * word * word
 
 type ram = rib array
 
-let size_ram = 90000
+let size_ram = 900000
 let alloc_limit = size_ram / 2 -1
 
 (* la mémoire *)
@@ -82,12 +86,66 @@ let int_val_orelse i def =
   |  Int i -> i
   | _ -> def
 
-
+let print_value (v : word) : unit =
+  match v with
+  | Int i -> Printf.printf "Int %d" i
+  | Triplet t -> Printf.printf "Triplet %d " t;
+  | Nil -> Printf.printf "Nil"   
+    
+  
 let rib_eq (a:rib) (b:rib) : bool = 
   let (a1, a2, a3) = a in 
   let (b1, b2, b3) = b in 
   a1 = b1 && a2 = b2 && a3 = b3
-let word_eqv (a:word) (b:word) : bool = a = b
+
+  let get_int_triplet (x : word) = 
+    match x with 
+      Triplet i -> i 
+    |_ -> invalid_arg "expected a triplet 1" 
+  let get_rib (r : word ) : rib =
+    match r with 
+    | Triplet i -> ram.(i)
+    | _ -> invalid_arg "get_rib expected a triplet"
+  let rec print_rib (rib : rib) : unit =
+  
+    let print_value (v : word) : unit =
+      match v with
+      | Int i -> Printf.printf "%d" i
+      | Triplet t -> print_rib (get_rib (Triplet t))
+      | Nil -> Printf.printf "Nil"   in
+    let print_separator () = Printf.printf "," in
+    let print_open_bracket () = Printf.printf "[" in
+    let print_close_bracket () = Printf.printf "]" in
+    match rib with
+    | (a, b, c) ->
+        print_open_bracket ();
+        print_value a; print_separator ();
+        print_value b; print_separator ();
+        print_value c;
+        print_close_bracket ()
+                 
+
+        let print_r (ri:rib) :unit= 
+        match ri with 
+          (car, cdr, tag) -> (
+            Printf.printf "\n car : ";print_value car ; 
+            Printf.printf " cdr : "; print_value cdr;
+            Printf.printf " tag : "; print_value tag;
+            Printf.printf " FINIIINININ \n")
+  
+let word_eqv (a:word) (b:word) : bool = 
+  if is_rib_w a then
+    print_r (get_rib a)
+  else
+    print_value (a);
+  Printf.printf " <- aaaaa\n";
+
+  if is_rib_w b then
+    print_r (get_rib b)
+  else
+    print_value (b);
+  Printf.printf " <- bbbb\n";
+  a = b
 
 let get_car (rib : rib) : word= match rib with 
     (car, _,_ ) -> car
@@ -100,7 +158,7 @@ let set_car (rib : rib) (w : word) =
 
 let set_car_triplet (rib : word) (newval:word) = 
   match rib with 
-  | Triplet i -> let (car, cdr, tag) = ram.(i) in ram.(i) <- (newval, cdr, tag)
+  | Triplet i -> let (car, cdr, tag) = ram.(i) in ram.(i) <- (newval, cdr, tag); newval
   | _ -> invalid_arg "set car triplet expected a triplet"
 let get_car_triplet (rib : word) : word =
   match rib with 
@@ -125,7 +183,7 @@ let set_cdr (rib : rib) (w : word) =
 
 let set_cdr_triplet (rib : word) (newval : word) = 
   match rib with
-  | Triplet i -> let (car,cdr,tag) = ram.(i) in ram.(i) <- (car, newval, tag)
+  | Triplet i -> let (car,cdr,tag) = ram.(i) in ram.(i) <- (car, newval, tag); newval
   | _ -> invalid_arg "set cdr triplet expected a triplet"
 
 
@@ -151,7 +209,7 @@ let set_tag (rib : rib) (newval : word) =
   | (car, cdr, tag) -> (car, cdr, newval)
 let set_tag_triplet (rib : word) (newval : word) = 
   match rib with
-  | Triplet i -> let (car,cdr,tag) = ram.(i) in ram.(i) <- (car, cdr, newval)
+  | Triplet i -> let (car,cdr,tag) = ram.(i) in ram.(i) <- (car, cdr, newval); newval
   | _ -> invalid_arg "set cdr triplet expected a triplet"
 
 
@@ -162,25 +220,22 @@ let true_rib : rib = make_rib_of_ints 0 0 5
 let nil_rib : rib = make_rib_of_ints 0 0 5
 
 let tos  = function () -> get_car ram.(!sp)
-let get_int_triplet (x : word) = 
-  match x with 
-    Triplet i -> i 
-  |_ -> invalid_arg "expected a triplet 1" 
-let get_rib (r : word ) : rib =
-  match r with 
-  | Triplet i -> ram.(i)
-  | _ -> invalid_arg "get_rib expected a triplet"
+
 let pop ()  =
   let x = get_car ram.(!sp) in 
-  if is_rib_w (get_cdr ram.(!sp)) then
+  (if is_rib_w (get_cdr ram.(!sp)) then
     sp := get_int_triplet (get_cdr ram.(!sp))
   else
-    ram.(!sp) <- (Nil, get_cdr ram.(!sp),  get_tag ram.(!sp)); 
+    ram.(!sp) <- (Nil, get_cdr ram.(!sp),  get_tag ram.(!sp)));
   x 
   
 let popr () = 
-  let x = pop() in get_rib x
-
+  let x = ram.(!sp) in
+  sp := get_int_triplet (get_cdr ram.(!sp));
+  if is_rib_w (get_car x) then 
+    get_rib (get_car x)
+  else
+    x
   
 let push_rib(rib : rib) : unit =
   let i = !sp in
@@ -194,7 +249,7 @@ let push_rib(rib : rib) : unit =
       ram.(i-2) <- (Triplet (i-1), Triplet i, Int pair_type); 
       sp := i-2) 
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow &"
     (* gc *)
 
 
@@ -205,7 +260,7 @@ let push_word (car : word) : unit =
     if i = size_ram then (ram.(i-1) <- (car, Int 0, Int pair_type); sp := !sp-1) else
       (ram.(i-1) <- (car, Triplet (i), Int pair_type); sp := i-1)
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow é"
     (* gc *)
 
 let prim0 f = function () -> f () |> push_word
@@ -223,7 +278,7 @@ let prim3 f = function () ->
   f x y z |> push_rib
   
 
-let to_bool = function true -> true_rib | false -> false_rib
+let to_bool = function true -> true_rib | false -> (Triplet 1, Triplet 2, Int 5)
 
 let getchar () =
   try
@@ -236,28 +291,33 @@ let putchar c =
   flush stdout;
   c
 
+
 let close () =
-  let tos = popr () in
-  let x = get_car tos in
+  let tos = tos() in
+  let x = get_car_triplet tos in
   let y = get_cdr ram.(!sp) in
-  let close = make_rib x y (Int procedure_type) in push_rib close
+  let (car, cdr, tag) = ram.(!sp)
+  in
+   ram.(!sp) <- (x, y, Int 1);
+   ram.(!sp-1) <- (Triplet !sp,cdr, tag);
+    sp := !sp - 1
 
 let prim1_fields f = function () ->
   let x = popr () in
+  print_r x;
+  Printf.printf " printes dans prim1\n"; 
   let y = f x in
   push_word y
 
-let prim2_fields f = function () ->
+let prim2_fields (f: word -> word -> word) = function () ->
   let x = pop () in
-  let y = popr () in
-  f x y |>
-  push_rib
+  let y = pop () in
+  f x y |> push_word
 
 let prim2_bool f = function () ->
-  let y = pop () in
   let x = pop () in
+  let y = pop () in
   f x y |> to_bool |> push_rib
-
 let primitives = [|
 (* @@(primitives (gen body) *)
   prim3 (fun z y x -> make_rib x y z);                                    (* @@(primitive (rib a b c))@@ *)
@@ -269,9 +329,9 @@ let primitives = [|
   prim1_fields get_car ;                                                          (* @@(primitive (field0 rib))@@ *)
   prim1_fields get_cdr;                                                          (* @@(primitive (field1 rib))@@ *)
   prim1_fields get_tag;                                                          (* @@(primitive (field2 rib))@@ *)
-  prim2_fields (fun y x -> set_car x y);                                      (* @@(primitive (field0-set! rib))@@ *)
-  prim2_fields (fun y x -> set_cdr x y);                                      (* @@(primitive (field1-set! rib))@@ *)
-  prim2_fields (fun y x -> set_tag x y);                                      (* @@(primitive (field2-set! rib))@@ *)
+  prim2_fields (fun y x -> set_car_triplet x y);                                      (* @@(primitive (field0-set! rib))@@ *)
+  prim2_fields (fun y x -> set_cdr_triplet x y);                                      (* @@(primitive (field1-set! rib))@@ *)
+  prim2_fields (fun y x -> set_tag_triplet x y);                                      (* @@(primitive (field2-set! rib))@@ *)
   prim2_bool (fun y x -> word_eqv x y);                             (* @@(primitive (eqv? x y) (use bool2scm))@@ *)
     (*  @@(primitive (< x y) @@ *)
   prim2_bool (fun y x -> match x, y with
@@ -328,33 +388,12 @@ let get_rib_sym (w : word) =
   match w with 
     Triplet i -> ram.(i)
   | _ -> invalid_arg "get_rib_sym"    
-let rec print_rib (rib : rib) : unit =
-  
-  let print_value (v : word) : unit =
-    match v with
-    | Int i -> Printf.printf "%d" i
-    | Triplet t -> print_rib (get_rib (Triplet t))
-    | Nil -> Printf.printf "Nil"   in
-  let print_separator () = Printf.printf "," in
-  let print_open_bracket () = Printf.printf "[" in
-  let print_close_bracket () = Printf.printf "]" in
-  match rib with
-  | (a, b, c) ->
-      print_open_bracket ();
-      print_value a; print_separator ();
-      print_value b; print_separator ();
-      print_value c;
-      print_close_bracket ()
-               
-
            
-let print_value (v : word) : unit =
-  match v with
-  | Int i -> Printf.printf "Int %d" i
-  | Triplet t -> Printf.printf "Triplet %d " t;
-  | Nil -> Printf.printf "Nil"   
 
 let rec list_tail (ptr:int) i =
+  Printf.printf "list tail %d\n" i;
+  print_r ram.(ptr);
+  Printf.printf "\n";
   if 0 = i then 
     Triplet ptr
   else
@@ -532,7 +571,7 @@ let push_symtbl (rib:rib) : unit =
       (ram.(i+1) <- rib;
       st := i+1)
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 10"
     (* gc *)
 
 let create_sym (i:int)= 
@@ -562,7 +601,7 @@ let push_symtbl_word_accum (car: word) (cdr:word) =
       ram.(i+1) <- (car, cdr, Int pair_type);
       st := i+1) 
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 11"
     (* gc *)
     
 let build_symtbl () : unit =
@@ -639,9 +678,11 @@ let set_global (value:rib) = (
   set_car_triplet (get_car_triplet (Triplet !stbl)) (Triplet !st);)
 
 
-
 let push2_stack_word(w : word) (tag : word): unit =
   let i = !sp in
+  Printf.printf "push2_stack_word %d\n" i;
+  if i < size_ram then print_r ram.(i) else ();
+  Printf.printf "\n";
   if i > alloc_limit then
       (* premier elemn de stack *)
     if i = size_ram then 
@@ -651,7 +692,7 @@ let push2_stack_word(w : word) (tag : word): unit =
       ram.(i-1) <- (w, Triplet (i), tag);
       sp := i-1) 
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 12"
       (* gc *)
 
 
@@ -668,7 +709,7 @@ let push_stack (rib : rib) : unit =
       ram.(i-2) <- (Triplet (i-1), Triplet i, Int pair_type); 
       sp := i-2) 
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 13"
     (* gc *)
 let codes = [| 20; 30; 0; 10; 11; 4 |]
 
@@ -686,7 +727,7 @@ let push_heap_rib (rib : rib) : unit =
       ram.(i+2) <- (Triplet (i+1), Triplet i, Int pair_type);
       pc := i+2) 
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 14"
     (* gc *)
 
 let push_heap_word (w : word) : unit =
@@ -700,7 +741,7 @@ let push_heap_word (w : word) : unit =
       ram.(i+1) <- (w, Triplet i, Int pair_type);
       pc := i+1) 
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 15"
     (* gc *)
 
 
@@ -711,7 +752,7 @@ let push_heap_r (rib : rib) : unit =
     (ram.(i+1) <- rib;
      pc := i+1) 
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 16"
     (* gc *)
     
 let print_value (v : word) : unit =
@@ -719,13 +760,7 @@ let print_value (v : word) : unit =
   | Int i -> Printf.printf "Int %d" i
   | Triplet t -> Printf.printf "Triplet %d " t;
   | Nil -> Printf.printf "Nil"     
-let print_r (ri:rib) :unit= 
-  match ri with 
-    (car, cdr, tag) -> (
-      Printf.printf "\n car : ";print_value car ; 
-      Printf.printf " cdr : "; print_value cdr;
-      Printf.printf " tag : "; print_value tag;
-      Printf.printf " FINIIINININ \n")
+
 let get_cdr_triplet_sym (rib : word) : word = 
   match rib with 
   | Triplet t -> let (v1, v2, v3) = ram.(t) in 
@@ -743,7 +778,167 @@ let push_heap_r (rib : rib) : unit =
       ram.(i+1) <- rib;
       pc := i+1) 
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 17"
+    (* gc *)
+ 
+let push_heap_copy (rib : rib) : unit =
+  let i = !pc in
+  let rec push_heap_stack (w : word) : unit =
+    let i = !pc in
+    if i < size_ram then
+      (
+        let (car, cdr, tag) = get_rib w in
+        match (car, cdr, tag) with
+        | (Int _, Int _, Int _) -> 
+          (ram.(i+1) <- (car, cdr, tag);
+           pc := i+1)
+        | (Triplet t, Int _, Int _) ->
+          if t > !stbl then 
+          (push_heap_stack (car);
+          ram.(!pc+1) <- (Triplet (!pc), cdr, tag);
+          pc := !pc+1)
+          else
+          (ram.(i+1) <- (car, cdr, tag);
+           pc := i+1)
+        | (Triplet t, Triplet y, Int _) ->
+          if t > !stbl && y > !stbl then (
+          push_heap_stack (car);
+          let k = !pc in
+          push_heap_stack (cdr);
+          ram.(!pc+1) <- (Triplet k, Triplet !pc, tag);
+          pc := !pc+1);
+          if t > !stbl && y < !stbl then (
+          push_heap_stack (car);
+          ram.(!pc+1) <- (Triplet !pc, cdr, tag)
+          );
+          if t < !stbl && y > !stbl then (
+          push_heap_stack (cdr);
+          ram.(!pc+1) <- (car, Triplet !pc, tag)
+          );
+          if t < !stbl && y < !stbl then (
+          ram.(i+1) <- (car, cdr, tag);
+          pc := i+1)
+        | (Triplet t, Triplet y, Triplet u) ->
+          if t> !stbl && y > !stbl && u > !stbl then (
+            push_heap_stack (car);
+            let k = !pc in
+            push_heap_stack (cdr);
+            let j = !pc in
+            push_heap_stack (tag);
+            ram.(!pc+1) <- (Triplet k, Triplet j, Triplet !pc);
+            pc := !pc+1);
+          if t> !stbl && y > !stbl && u < !stbl then (
+            push_heap_stack (car);
+            let k = !pc in
+            push_heap_stack (cdr);
+            ram.(!pc+1) <- (Triplet k, Triplet !pc, tag);
+            pc := !pc+1);
+          if t> !stbl && y < !stbl && u > !stbl then (
+            push_heap_stack (car);
+            let k = !pc in
+            push_heap_stack (tag);
+            ram.(!pc+1) <- (Triplet k, cdr, Triplet !pc);
+            pc := !pc+1);
+          if t> !stbl && y < !stbl && u < !stbl then (
+            push_heap_stack (car);
+            ram.(!pc+1) <- (Triplet !pc, cdr, tag);
+            pc := !pc+1);
+          if t< !stbl && y > !stbl && u > !stbl then (
+            push_heap_stack (cdr);
+            let k = !pc in
+            push_heap_stack (tag);
+            ram.(!pc+1) <- (car, Triplet k, Triplet !pc);
+            pc := !pc+1);
+          if t< !stbl && y > !stbl && u < !stbl then (
+            push_heap_stack (cdr);
+            ram.(!pc+1) <- (car, Triplet !pc, tag);
+            pc := !pc+1);
+          if t< !stbl && y < !stbl && u > !stbl then (
+            push_heap_stack (tag);
+            ram.(!pc+1) <- (car, cdr, Triplet !pc);
+            pc := !pc+1);
+          if t< !stbl && y < !stbl && u < !stbl then (
+            ram.(i+1) <- (car, cdr, tag);
+            pc := i+1)
+
+        | (Int _, Triplet t, Int _) ->
+          if t > !stbl then (
+            push_heap_stack (cdr);
+            ram.(!pc+1) <- (car, Triplet !pc, tag);
+            pc := !pc+1
+          )
+          else
+            (ram.(i+1) <- (car, cdr, tag);
+             pc := i+1)
+        | (Int _, Triplet t, Triplet y) ->
+          if t > !stbl && y > !stbl then (
+            push_heap_stack (cdr);
+            let k = !pc in
+            push_heap_stack (tag);
+            ram.(!pc+1) <- (car, Triplet k, Triplet !pc);
+            pc := !pc+1);
+          if t > !stbl && y < !stbl then (
+            push_heap_stack (cdr);
+            ram.(!pc+1) <- (car, Triplet !pc, tag);
+            pc := !pc+1);
+          if t < !stbl && y > !stbl then (
+            push_heap_stack (tag);
+            ram.(!pc+1) <- (car, cdr, Triplet !pc);
+            pc := !pc+1);
+          if t < !stbl && y < !stbl then (
+            ram.(i+1) <- (car, cdr, tag);
+            pc := i+1)
+        | (Int _, Int _, Triplet t) ->
+          if t > !stbl then (
+            push_heap_stack (tag);
+            ram.(!pc+1) <- (car, cdr, Triplet !pc);
+            pc := !pc+1)
+          else
+            (ram.(i+1) <- (car, cdr, tag);
+             pc := i+1)
+        | (Triplet t, Int _, Triplet y) ->
+          if t > !stbl && y > !stbl then (
+            push_heap_stack (car);
+            let k = !pc in
+            push_heap_stack (tag);
+            ram.(!pc+1) <- (Triplet k, cdr, Triplet !pc);
+            pc := !pc+1);
+          if t > !stbl && y < !stbl then (
+            push_heap_stack (car);
+            ram.(!pc+1) <- (Triplet !pc, cdr, tag);
+            pc := !pc+1);
+          if t < !stbl && y > !stbl then (
+            push_heap_stack (car);
+            let k = !pc in
+            push_heap_stack (tag);
+            ram.(!pc+1) <- (Triplet k, cdr, Triplet !pc);
+            pc := !pc+1);
+          if t < !stbl && y < !stbl then (
+            ram.(i+1) <- (car, cdr, tag);
+            pc := i+1)
+          
+        | _ -> Printf.printf "wait"
+      )
+    else
+      invalid_arg "stack overflow 19"
+      (* gc *)
+    in
+  if i < size_ram then
+    (
+      let (car, cdr, p) = rib in 
+      match p with 
+      | Int _ -> 
+        (ram.(i+1) <- rib;
+         pc := i+1)
+      | Triplet t -> 
+        push_heap_stack (Triplet t);
+        ram.(!pc+1) <- (car, cdr, Triplet !pc);
+        pc := !pc+1
+      | _ -> invalid_arg "push_heap_copy"
+
+    )
+  else
+    invalid_arg "stack overflow 19"
     (* gc *)
 
 let push_stack_car (rib : rib) : unit = 
@@ -762,17 +957,17 @@ let push_stack_car (rib : rib) : unit =
     )
       
   else
-    invalid_arg "stack overflow"
+    invalid_arg "stack overflow 18"
     (* gc *) 
 
 let decode = function () ->(
-
+    Printf.printf ("DECODE\n");
   (* Graphe d'instruction *)
     let rec decode_loop () : word = 
       (* if !sp != size_ram then(
-        (* Printf.printf "\n LA STACK \n"; *)
-        print_rib (ram.(!sp))); *)
-        (* Printf.printf "\n"); *)
+        Printf.printf "\n LA STACK \n";
+        print_rib (ram.(!sp));
+        Printf.printf "\n"); *)
       let sym (n:int) = 
         let l = (list_tail (!stbl) (n))in
         Printf.printf("here\n");
@@ -805,18 +1000,18 @@ let decode = function () ->(
         if (n< d) then 
           (
             if op <3 then (
-                (* Printf.printf "\n op<3 \n"; *)
+                Printf.printf "\n op<3 \n";
               sym n) 
             else (
-                (* Printf.printf "\n op>=3 \n"; *)
+                Printf.printf "\n op>=3 \n";
               (Int n)))
         else
         if n = d then (
-          (* Printf.printf "\n n=d \n";   *)
+          Printf.printf "\n n=d \n";  
           Int (get_int 0)) 
         else
           (
-          (* Printf.printf "\n n!=d \n"; *)
+          Printf.printf "\n n!=d \n";
           sym (get_int ((n-d)-1)))
 
       
@@ -827,33 +1022,34 @@ let decode = function () ->(
         in
         if (d+2) < (int_val n) then
           ( 
-            (* Printf.printf "\n d+2 < n \n"; *)
+            Printf.printf "\n d+2 < n \n";
             loop (op + 1) (Int ((int_val n)-(d+3))))
         else
         if 90 < x then (*if *)(
-          (* Printf.printf "\n x > 90 \n"; *)
+          Printf.printf "\n x > 90 \n";
           (* print_rib (ram.(!sp));
           Printf.printf "\n"; *)
-          (* let tos = pop() in *)
           add_instr_if ())
         else 
           (  
-            (* Printf.printf "\n x <= 90 \n";         *)
+            Printf.printf "\n x <= 90 \n";        
             (* jump ou call *)
             if op = 0 then (  
-              (* Printf.printf "\n op = 0 \n"; *)
+              Printf.printf "\n op = 0 \n";
               push2_stack_word (Int 0) (Int 0) 
             )else (
-              (* Printf.printf "\n op !=0 \n" *)
+              Printf.printf "\n op !=0 \n"
               );
             let opnd = calcul_opnd (int_val n) d (op) in
 
             if 4 < op then
               (
 
-                (* Printf.printf "\n 4 < op \n"; *)
+                Printf.printf "\n 4 < op \n";
                 let p = pop() in 
-                push_heap_r (make_rib opnd (Int 0) (p)) ;
+                Printf.printf "\n ppppppppppppppppp \n";
+                print_rib (get_rib p);
+                push_heap_copy (make_rib opnd (Int 0) (p)) ;
 
                 push_heap_r nil_rib;
                 push_heap_r (make_rib (Triplet (!pc-1)) (Triplet !pc) (Int procedure_type));
@@ -865,14 +1061,14 @@ let decode = function () ->(
                   add_instruction (instr_const) (Triplet !pc))
               )
             else(
-              (* Printf.printf "\n 4 >= op \n"; *)
+              Printf.printf "\n 4 >= op \n";
             if (0<op) then
               (
-                (* Printf.printf "\n 0 < op \n"; *)
+                Printf.printf "\n 0 < op \n";
                 add_instruction (op-1) opnd)
             else
               (
-                (* Printf.printf "\n 0 >= op \n"; *)
+                Printf.printf "\n 0 >= op \n";
                 add_instruction (0) opnd)
           ) )
       
@@ -1000,7 +1196,13 @@ let get_cont  = function () ->
 
 (* Decodage de la RVM *)
 let rec run (p : int)=  
-  Printf.printf "\nNEWWWWW\n" ;
+  let calcul_i vari p = 
+    if vari = 1 then 
+      (int_val ((get_car_triplet  (Triplet (!sp))))+p+3)
+    else
+      (p+3)
+    in
+  Printf.printf "\nNEWWWWW %d\n" p ;
   let instr = get_car_triplet (Triplet !pc)
   and opnd = get_cdr_triplet (Triplet !pc)
   and next = get_tag_triplet (Triplet !pc)  
@@ -1011,6 +1213,18 @@ let rec run (p : int)=
   print_value opnd;
   Printf.printf "\nnext\n";
   print_value next;
+
+  print_r ram.(899819);
+  Printf.printf "\n";
+  if is_rib_w (get_cdr_triplet (Triplet 899819)) then
+    if is_rib_w (get_car_triplet (get_cdr_triplet (Triplet 899819))) then(
+      Printf.printf " \n car cdr 0 0 -- RIB 899819 ";
+      print_r (get_rib (get_car_triplet (get_cdr_triplet (Triplet 899819)))))
+    else ()
+  else ();
+  
+  Printf.printf " \nRIB 899819 ";
+
   
   match instr with 
   | Int 3 -> 
@@ -1018,7 +1232,6 @@ let rec run (p : int)=
       print_value opnd;
       Printf.printf "\ngenre la \n";
       show_stack();
-      Printf.printf "ok bro\n";
       Printf.printf "Printing la stack before\n";
       print_r ram.(!sp);
       Printf.printf "\n";
@@ -1035,6 +1248,27 @@ let rec run (p : int)=
       advance_pc();
       Printf.printf "pc2\n";
       print_r ram.(!pc);
+      if is_rib_w (get_cdr_triplet (Triplet !pc)) then(
+        Printf.printf "cdr pc %d\n" (get_int_triplet (get_cdr_triplet (Triplet !pc)));
+        print_r ram.(get_int_triplet (get_cdr_triplet (Triplet !pc)));
+        if is_rib_w (get_car_triplet (get_cdr_triplet(Triplet !pc))) then(
+          Printf.printf "car cdr pc %d\n" (get_int_triplet (get_car_triplet (get_cdr_triplet (Triplet !pc))));
+          print_r ram.(get_int_triplet (get_car_triplet (get_cdr_triplet(Triplet !pc))));
+          if is_rib_w (get_cdr_triplet (get_car_triplet (get_cdr_triplet(Triplet !pc)))) then(
+            Printf.printf "cdr car cdr pc %d\n" (get_int_triplet (get_cdr_triplet (get_car_triplet (get_cdr_triplet (Triplet !pc)))));
+            print_r ram.(get_int_triplet (get_cdr_triplet (get_car_triplet (get_cdr_triplet(Triplet !pc)))));
+            
+          )
+            
+          else ();
+        )
+          
+        else ();
+        
+        )
+        
+      else ();
+      
       (* print_r ram.(get_int_triplet (get_tag_triplet (Triplet !pc))); *)
       Printf.printf "\n";
       run(p)
@@ -1051,55 +1285,286 @@ let rec run (p : int)=
         Printf.printf "\n";
         Printf.printf "print stack dans call/jump\n";
         print_r ram.(!sp);
-        Printf.printf "\ncar";
-        print_r ram.(89947);
         Printf.printf "\n";
+        if is_rib_w (get_cdr_triplet (Triplet !sp)) then(
+          print_r ram.(get_int_triplet (get_cdr_triplet (Triplet !sp)));
+          if is_rib_w (get_cdr_triplet (get_cdr_triplet(Triplet !sp))) then(
+            print_r ram.(get_int_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))));
+            if is_rib_w (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp)))) then(
+              print_r ram.(get_int_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp)))));
+              if is_rib_w (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))))) then(
+                print_r ram.(get_int_triplet(get_cdr_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))))));
+              
+              )
+              
+            else ();
+            )
+              
+            else ();
+          )
+            
+          else ();
+          
+          )
+          
+        else ();
+
         let proc = get_var opnd in
         Printf.printf "\nproc : \n";
         show_opnd proc;
         print_r ram.(get_int_triplet proc);
-        Printf.printf "\n";
+        Printf.printf "\n car";
+        if is_rib_w (get_car_triplet (proc)) then(
+          print_r ram.(get_int_triplet (get_car_triplet (proc)))
+        )          
+        else ();
+        Printf.printf "\n cdr";
+
+        if is_rib_w (get_cdr_triplet (proc)) then(
+          print_r ram.(get_int_triplet (get_cdr_triplet (proc)))
+        )          
+        else ();
+        Printf.printf "\n tag";
+
+        if is_rib_w (get_tag_triplet (proc)) then(
+          print_r ram.(get_int_triplet (get_tag_triplet (proc)))
+        )          
+        else ();
+        
         let code = get_car_triplet proc in 
         print_value code;
         Printf.printf " <-printed code\n";
-        let nargs = pop() in 
-        print_value nargs;
-        Printf.printf " <- nargs\n";
+        let nargs = int_val (pop()) in 
+        
+        Printf.printf " %d <- nargs\n" nargs;
         
         (match code with 
         | Int i -> (
           (* Calling a primitive *)
           primitives.(i) () ;
+          Printf.printf ("stack apres primitivves\n");
+          print_r ram.(!sp);
+          Printf.printf "\nokokokokoko 899868\n";
+          if is_rib_w (get_cdr_triplet (Triplet !sp)) then(
+            print_r ram.(get_int_triplet (get_cdr_triplet (Triplet !sp)));
+            if is_rib_w (get_cdr_triplet (get_cdr_triplet(Triplet !sp))) then(
+              print_r ram.(get_int_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))));
+              if is_rib_w (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp)))) then(
+                print_r ram.(get_int_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp)))));
+                if is_rib_w (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))))) then(
+                  print_r ram.(get_int_triplet(get_cdr_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))))));
+                
+                )
+                
+              else ();
+              )
+                
+              else ();
+            )
+              
+            else ();
+            
+            )
+            
+          else ();
+          if is_rib_w (get_car_triplet (Triplet !sp)) then
+            print_r ram.(get_int_triplet (get_car_triplet (Triplet !sp)))
+          else ();
+          Printf.printf "\n";
           if next = Int 0 then (
             (* jump *)
-
+            Printf.printf "je jump\n";
             pc := get_int_triplet (get_cont());
 
             let (car, cdr, tag) = ram.(!sp) in 
-              ram.(!sp) <- (car, get_car (ram.(!pc)), tag))
+            Printf.printf "je jump le pc get cont\n";
+              print_r ram.(!pc);
+              print_r ram.(get_int_triplet (get_car_triplet (Triplet !pc)));
+              ram.(!sp) <- (car, get_car (ram.(!pc)), tag);
+              )
           else
-            ();
+            (
+
+            );
           advance_pc();
-          Printf.printf "pc nouveau\n";
-          print_r ram.(!pc);
-          Printf.printf "\ncar : ";
-          print_r ram.(38);
-          Printf.printf "\ncdr : ";
-          print_r ram.(32);
-          Printf.printf "\n";
-          Printf.printf "why am i not here\n";
+
           Printf.printf ("stack apres call ou jump\n");
           print_r ram.(!sp);
-          Printf.printf "\n car 89905";
-          print_r ram.(89947);
-          Printf.printf "\n cdr 89906";
-          print_r ram.(89948);
+          Printf.printf "\nokokokokoko 899868\n";
+          if is_rib_w (get_cdr_triplet (Triplet !sp)) then
+            (Printf.printf "\cdr de stack\n";
+            print_r ram.(get_int_triplet (get_cdr_triplet (Triplet !sp))))
+          else ();
+          if is_rib_w (get_car_triplet (Triplet !sp)) then
+            print_r ram.(get_int_triplet (get_car_triplet (Triplet !sp)))
+          else ();
+          Printf.printf "\n pc : \n";
+          print_r ram.(!pc);
           Printf.printf "\n";
           run(p))
         | Triplet t -> (
           Printf.printf "code is a Triplet\n";
-          let nparams = get_int_triplet (get_car_triplet code) in
-          Printf.printf "nparams : %d\n" nparams
+          print_r ram.(t);
+          Printf.printf "\n";
+          (* Printf.printf "code Triplet im printing tag\n";
+          print_r (get_rib (get_tag_triplet (Triplet t))); *)
+          Printf.printf "\n";
+          
+          let nparams = (int_val (get_car_triplet code)) lsr 1 in
+          ram.(p+1) <- (Int nparams, Int 0, Int 0);
+          Printf.printf "nparams : %d\n" nparams;
+          
+          (* @@(feature arity-check *)
+            let vari = int_val (get_car_triplet code) land 1 in  
+            Printf.printf "vari : %d\n" vari;
+            if (vari = 0  && nparams != (nargs)) || (vari != 0 && nparams > ( nargs)) then
+              failwith "*** Unexpected number of arguments nargs: %d nparams: %d vari: %d\n" nargs nparams vari
+            else
+              ();
+            
+          (* )@@ 
+           @@(feature rest-param (use arity-check) *)
+            if vari = 1 then
+              (
+                let rec rest_loop rest it= 
+                  if 0<it then 
+                    ( 
+                      Printf.printf"not tested yet\n";
+
+                      Printf.printf "\nhere\n";
+                      let ite = get_int_triplet rest in
+                      Printf.printf "\nhere2\n";
+
+                      let (car, cdr, tag) = ram.(!sp) in
+                      let (car2, cdr2, tag2) = ram.(get_int_triplet (get_cdr_triplet (Triplet !sp))) in
+                      ram.(!sp) <- (car2, cdr2, tag2);
+                      ram.(get_int_triplet (get_cdr_triplet (Triplet !sp))) <- (car, cdr, tag);
+                      ram.(ite+1) <- (car, rest, Int pair_type); 
+                      rest_loop (Triplet (ite+1)) (it-1) 
+                    )
+                  else
+                    (
+                      Printf.printf"testing\n";
+                      ram.(!sp-1) <- (rest, Triplet !sp, Int 0);
+                      sp := !sp -1;
+                      ram.(p+1) <- (Int (nparams+1), Int 0, Int 0);
+                    ); 
+                in
+                ram.(p+2) <- nil_rib;
+                rest_loop (Triplet (p+2)) (nargs-nparams);
+              );
+              Printf.printf "\nherehere\n";
+
+                (* nouveau p dans car de Triplet sp *)
+              let np = calcul_i vari (p) in
+              Printf.printf "\nhereb np=%d et p =%d\n" np p;
+              print_r ram.(np);
+              let new_cont = make_rib (Int 0) (proc) (Int 0) in
+              Printf.printf "\nherec\n";
+                let nc = !sp-1 in
+              ram.(nc) <- new_cont;
+              Printf.printf "\nhered new cont\n";
+              print_r ram.(nc);
+
+              let rec loop nparams new_stack= 
+                if 0 < nparams then 
+                  (
+                    let (car, cdr, tag) = ram.(!sp) in
+                    
+                    let (car2, cdr2, tag2) = ram.(get_int_triplet (get_cdr_triplet (Triplet !sp))) in
+                    let k = get_int_triplet (new_stack) in
+
+                    ram.(!sp) <- (car2, cdr2, tag2);
+                    ram.(get_int_triplet (cdr)) <- (car, cdr, tag);
+
+                    ram.(k-1) <- (car, new_stack, Int 0);
+                    Printf.printf "printing sp dans loop\n";
+
+                    print_r ram.(!sp);
+                    Printf.printf "\nokokokokoko 899868\n";
+                    if is_rib_w (get_cdr_triplet (Triplet !sp)) then
+                      print_r ram.(get_int_triplet (get_cdr_triplet (Triplet !sp)))
+                    else ();
+                    loop (nparams-1) (Triplet (k-1)))
+                else
+                  (
+                    (* non-tail call ? *)
+                    if is_rib_w next then 
+                      (
+                        (* call *)
+                        Printf.printf "hihihcall\n";
+                        print_r ram.(nc);
+                        let (car, cdr, tag) = ram.(nc) in 
+                        ram.(nc) <- ((Triplet !sp), cdr, next);
+                        Printf.printf "hihihcall 2\n";
+                        print_r ram.(nc)
+                      ) 
+                    else (
+                      (* jump *)
+                      let k = get_cont() in
+                      let (car, cdr, tag) = ram.(nc) in
+                      ram.(nc) <- ((get_car_triplet k), cdr, (get_tag_triplet k));
+                    );
+                    pc := get_int_triplet (get_tag_triplet (code));
+                    sp := get_int_triplet (new_stack);
+                    Printf.printf "new stack  \n";
+                    print_r ram.(!sp);
+                    Printf.printf "\nokokokokoko 899868\n";
+                    if is_rib_w (get_cdr_triplet (Triplet !sp)) then(
+                      print_r ram.(get_int_triplet (get_cdr_triplet (Triplet !sp)));
+                      if is_rib_w (get_cdr_triplet (get_cdr_triplet(Triplet !sp))) then(
+                        print_r ram.(get_int_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))));
+                        if is_rib_w (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp)))) then(
+                          print_r ram.(get_int_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp)))));
+                          if is_rib_w (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))))) then(
+                            print_r ram.(get_int_triplet(get_cdr_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))))));
+                          
+                          )
+                          
+                        else ();
+                        )
+                          
+                        else ();
+                      )
+                        
+                      else ();
+                      
+                      )
+                      
+                    else ();
+                    Printf.printf "\npccccc0\n";
+                    print_r ram.(!pc);
+                    Printf.printf "\n";
+                    if is_rib_w (get_cdr_triplet (Triplet !pc)) then(
+                      print_r ram.(get_int_triplet (get_cdr_triplet (Triplet !pc)));
+                      if is_rib_w (get_cdr_triplet (get_cdr_triplet(Triplet !pc))) then(
+                        print_r ram.(get_int_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !pc))));
+                        if is_rib_w (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !pc)))) then(
+                          print_r ram.(get_int_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !pc)))));
+                          if is_rib_w (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !pc))))) then(
+                            print_r ram.(get_int_triplet(get_cdr_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !pc))))));
+                          
+                          )
+                          
+                        else ();
+                        )
+                          
+                        else ();
+                      )
+                        
+                      else ();
+                      
+                      )
+                      
+                    else ();
+                    run(np);
+                  );
+                  
+                in
+                let nparams = int_val (get_car_triplet (Triplet (p+1)))in
+                Printf.printf "nparams : %d\n" nparams;
+                loop nparams (Triplet (nc));
+          Printf.printf "te";
           
           )
         
@@ -1108,16 +1573,16 @@ let rec run (p : int)=
 
   | Int 1 -> 
     Printf.printf "\n--- set \n";
-    Printf.printf "rib opnd\n";
-    print_rib (get_rib opnd);
+    (* Printf.printf "rib opnd\n";
+    print_r (get_rib opnd); *)
     Printf.printf "\n";
     (* Printf.printf "rib stack\n";
     print_rib ram.(!sp); *)
     Printf.printf "\n";
     let x = tos() in 
-    Printf.printf "tos %d \n" (get_int_triplet x);
+    (* Printf.printf "tos %d \n" (get_int_triplet x);
     print_r (get_rib x);
-    Printf.printf "\n";
+    Printf.printf "\n"; *)
 
     (match opnd with
       Int i -> let lt = list_tail !sp i in
@@ -1125,12 +1590,26 @@ let rec run (p : int)=
         Printf.printf "regarde1 ";
         print_r ram.(get_int_triplet lt); 
         Printf.printf "\n";
+        if is_rib_w x then 
+          (
         ram.(p+1) <- get_rib x;
         ram.(get_int_triplet lt) <- (Triplet (p+1), cdr, tag)
+          )
+        else
+          (
+            ram.(get_int_triplet lt) <- (x, cdr, tag)
+          ) 
     | Triplet t -> let (car, cdr, tag) = ram.(t) in 
       Printf.printf "regarde2 ";print_r ram.(t); Printf.printf "\n";
+      if is_rib_w x then 
+        (
       ram.(p+1) <- get_rib x;
-      ram.(t) <- (Triplet(p+1), cdr, tag);
+      ram.(t) <- (Triplet (p+1), cdr, tag)
+        )
+      else
+        (
+          ram.(t) <- (x, cdr, tag)
+        ) ;
       Printf.printf "regarde3 %d " (p+1);print_r ram.(p+1); Printf.printf "\n";
     | _ -> invalid_arg "run");
 
@@ -1142,18 +1621,43 @@ let rec run (p : int)=
   | Int 2 -> 
     Printf.printf "\n--- get\n";
     Printf.printf "rib opnd\n";
-    print_r (get_rib opnd);
+    print_value opnd;
+    if is_rib_w opnd then (
+      print_r (get_rib opnd);
+    if is_rib_w (get_car (get_rib opnd)) then
+      print_r ram.(get_int_triplet (get_car (get_rib opnd)))
+    else ();
+    )
+    else ();
+
     Printf.printf "\n";
     Printf.printf "rib stack\n";
-    print_rib ram.(!sp);
+    print_r ram.(!sp);
+    Printf.printf "\nokokokokoko 899868\n";
+    if is_rib_w (get_cdr_triplet (Triplet !sp)) then
+      print_r ram.(get_int_triplet (get_cdr_triplet (Triplet !sp)))
+    else ();
+    if is_rib_w (get_car_triplet (Triplet !sp)) then
+      print_r ram.(get_int_triplet (get_car_triplet (Triplet !sp)))
+    else ();
+    
+    (* print_r ram.(get_(list_tail (!sp) (3))); *)
     Printf.printf "\n";
 
+
     let x = get_var opnd in
-    Printf.printf "get_opnd %d \n" (get_int_triplet x);
-    print_r ram.(get_int_triplet x);
-    Printf.printf "\n";
+    Printf.printf "\n899872 :";
+    print_r ram.(899872);
+    
+    (* Printf.printf "get_opnd %d \n" (get_int_triplet x); *)
+    (* print_r ram.(get_int_triplet x); *)
+    Printf.printf "\n value de x : ";
+    print_value x;
+    Printf.printf "\n185 :";
+    print_r ram.(185);
+
     (* print_r ram.(54); *)
-    (* Printf.printf "get cdr\n";
+    (* ;
     print_r ram.(get_int_triplet (get_cdr_triplet_sym (Triplet 54))); *)
     (* Printf.printf "\n";
     Printf.printf "Triplet 53\n";
@@ -1164,20 +1668,49 @@ let rec run (p : int)=
     Printf.printf "rib stack teg\n";
     print_r ram.(!sp);
     Printf.printf "\n";
+    Printf.printf " cdr";
+    if is_rib_w (get_cdr_triplet (Triplet !sp)) then(
+      print_r ram.(get_int_triplet (get_cdr_triplet (Triplet !sp)));
+      if is_rib_w (get_cdr_triplet (get_cdr_triplet(Triplet !sp))) then(
+        print_r ram.(get_int_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))));
+        if is_rib_w (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp)))) then(
+          print_r ram.(get_int_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp)))));
+          if is_rib_w (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))))) then(
+            print_r ram.(get_int_triplet(get_cdr_triplet (get_cdr_triplet (get_cdr_triplet (get_cdr_triplet(Triplet !sp))))));
+          
+          )
+          
+        else ();
+        )
+          
+        else ();
+      )
+        
+      else ();
+      
+      );
+      
+    Printf.printf "\n";
     advance_pc();
     run(p)
   | Int 4 -> 
     Printf.printf "--- IF\n";
     Printf.printf "rib stack\n";
-    print_rib ram.(!sp);
-    Printf.printf "\n";
-    Printf.printf "rib pc\n";
-    print_rib ram.(!pc);
+    print_r ram.(!sp);
+    Printf.printf "\nrib pc\n";
+    print_r ram.(!pc);
     Printf.printf "\n";
     let tos = pop() in Printf.printf "op\n";
     print_value tos;
+    Printf.printf "\n GET RIB TOS\n";
+    (* print_rib (get_rib tos); *)
+    print_value tos;
     Printf.printf "\n";
-    print_rib (get_rib tos);
+    if is_rib_w tos then 
+      (
+    Printf.printf "is rib\n";
+        print_rib (get_rib tos);
+        Printf.printf "\n";
     if (rib_eq (get_rib tos) (get_rib(Triplet 3))) then 
       (Printf.printf "\nfalse\n";
       pc := get_int_triplet (get_tag_triplet (Triplet !pc)))
@@ -1185,6 +1718,11 @@ let rec run (p : int)=
       (Printf.printf "\ntrue\n";
       pc := get_int_triplet (get_cdr_triplet (Triplet !pc)));
     
+      )
+    else 
+      ((Printf.printf "\ntrue\n";
+      pc := get_int_triplet (get_cdr_triplet (Triplet !pc)));
+    );
     run(p)
 
   | Int 5 -> 
@@ -1233,8 +1771,8 @@ Printf.printf("decode\n");;
 decode();;
 Printf.printf("end decode\n");;
 
-(* Printf.printf "\nle pc  %d\n" !pc;;
-print_rib ram.(!pc);; *)
+Printf.printf "\nle pc  %d\n" !pc;;
+(* print_rib ram.(!pc);; *)
 Printf.printf "\nhuh\n";;
 print_r ram.(!pc);;
 
@@ -1252,12 +1790,11 @@ print_rib ram.(!stbl);; *)
 let (car, cdr, tag) = ram.(0) in ram.(0) <- (car, (Triplet !stbl), tag);;
 
 Printf.printf "\n";;
-(* 
-noraml que ca marhce pas ?
-Printf.printf "\nle pc apres %d\n" !pc;;
-print_rib ram.(!pc);;
 
-Printf.printf "\n";; *)
+Printf.printf "\nle pc apres %d\n" !pc;;
+(* print_rib ram.(!pc);; *)
+
+Printf.printf "\n";;
 
 print_r ram.(0);;
 Printf.printf "huh\n";;
