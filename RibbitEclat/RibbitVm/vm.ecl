@@ -1,3 +1,4 @@
+let input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y";;
 (* Constantes pour les types *)
 let pair_type = 0;;
 let procedure_type = 1;;
@@ -43,7 +44,7 @@ tab_pointer.(2) <- st;;
 tab_pointer.(3) <- stbl;;
 tab_pointer.(4) <- pos;;
 
-let make_rib (((a,b)),c) : rib = (a, b, c);;
+let make_rib (a,b,c) : rib = (a, b, c);;
 
 let is_rib_w (r:word) : bool = match r with 
   | Triplet _ -> true 
@@ -79,7 +80,76 @@ let rib_eq (a,b) : bool =
   a1 = b1 && a2 = b2 && a3 = b3
 ;;
 
-let word_eqv (a,b) : bool = a = b;;
+let get_int_triplet (x : word) = 
+  match x with 
+    Triplet i -> i 
+  |_ -> fatal_error("expected a triplet 1")
+end
+;; 
+
+let get_rib (r : word ) : rib =
+  match r with 
+  | Triplet i -> ram.(i)
+  | _ -> fatal_error("get_rib expected a triplet")
+end
+;;
+
+let print_separator () = 
+  print_string ",";;
+
+let print_open_bracket () = 
+  print_string "[";;
+
+let print_close_bracket () = 
+  print_string "]";;
+
+let rec print_value v = 
+  match v with
+  | Int i -> print_int i
+  | Nil _ -> print_string "Nil"
+  | Triplet t -> 
+      let (a, b, c) = get_rib (Triplet t) in
+      print_open_bracket ();
+      print_value a; print_separator ();
+      print_value b; print_separator ();
+      print_value c;
+      print_close_bracket ()
+  end
+;;
+
+let print_rib rib =
+  let (a, b, c) = rib in
+  print_open_bracket ();
+  print_value a; print_separator ();
+  print_value b; print_separator ();
+  print_value c;
+  print_close_bracket ()
+;;
+
+
+let print_r (ri:rib) :unit= 
+  let (car, cdr, tag) = ri in 
+    print_string " car : "; print_value car ; 
+    print_string " cdr : "; print_value cdr;
+    print_string " tag : "; print_value tag;
+    print_newline ();;
+
+(* j'ai enleve la verification pour nil parce que je dois tout changer en unit *)
+let word_eqv (a, b) : bool =
+  match a with
+  | Int ia -> 
+      match b with
+      | Int ib -> ia = ib
+      | _ -> false
+      end
+      | Triplet ta -> 
+        match b with
+        | Triplet tb -> ta = tb
+        | _ -> false
+      end
+      | _ -> false
+end
+;;
 
 let get_car (rib:rib) : word= 
   let(a,b,c) = rib in 
@@ -151,21 +221,7 @@ let false_rib : rib = make_rib_of_ints (0,0,5);;
 let true_rib : rib = make_rib_of_ints (0,0,5);;
 let nil_rib : rib = make_rib_of_ints (0,0,5);;
 
-let tos = get_car(ram.(!sp));;
-
-let get_int_triplet (x : word) = 
-  match x with 
-    Triplet i -> i 
-  |_ -> fatal_error("expected a triplet 1")
-end
-;; 
-
-let get_rib (r : word ) : rib =
-  match r with 
-  | Triplet i -> ram.(i)
-  | _ -> fatal_error("get_rib expected a triplet")
-end
-;;
+let tos = get_car(ram.(!(tab_pointer.(1))));;
 
 
 let pop ()  =
@@ -178,6 +234,214 @@ x
 ;;
 
 
+let popr () = 
+  let x = pop() in get_rib (x)
+;;
+
+let push_rib(rib : rib) : unit =
+  let i = !(tab_pointer.(1)) in
+  if i > alloc_limit then
+    (* premier elemn de stack *)
+    if i = size_ram then 
+      (ram.(i-1) <- rib;
+    (tab_pointer.(1)):= i-1) 
+    else(
+      ram.(i-1) <- rib;
+      ram.(i-2) <- (Triplet (i-1), Triplet (i), Int(pair_type)); 
+      (tab_pointer.(1)) := i-2) 
+  else
+    fatal_error ("stack overflow")
+    (* gc *)
+  ;;
+  
+let push_word (car : word) : unit =
+  let i = !(tab_pointer.(1)) in
+  if i > alloc_limit then
+    (* premier elemn de stack *)
+    if i = size_ram then (ram.(i-1) <- (car, Int (0), Int (pair_type)); (tab_pointer.(1)) := !(tab_pointer.(1))-1) else
+      (ram.(i-1) <- (car, Triplet (i), Int (pair_type)); (tab_pointer.(1)) := i-1)
+  else
+    fatal_error ("stack overflow")
+    (* gc *)
+  ;;
+
+let prim0 f =
+  let result = f () in
+  push_word result;;
+
+
+let prim1_word f =
+  let result = pop () in
+  let result_after_f = f result in
+  push_word result_after_f;;
+
+let prim1_rib f =
+  let result = pop () in
+  let result_after_f = f result in
+  push_rib result_after_f;;
+
+let prim2 f =
+  let x = pop () in
+  let y = pop () in
+  let result_after_f = f(x,y) in
+  push_word result_after_f;;
+
+let prim3 f =
+  let x = pop () in
+  let y = pop () in
+  let z = pop () in
+  let result_after_f = f(x,y,z) in
+  push_rib result_after_f;;
+
+let to_bool = fun x -> 
+  if x then true_rib else false_rib 
+;;
+
+(* let getchar () =
+  try
+    input_char stdin |> int_of_char
+  with End_of_file -> -1
+;; *)
+
+(* let putchar c =
+  print_string "putchar ";
+  let char_to_print = char_of_int c in
+  print_string char_to_print;
+  flush stdout;
+  c;; *)
+
+let close () =
+  let tos = popr () in
+  let x = get_car (tos) in
+  let y = get_cdr (ram.(!(tab_pointer.(1)))) in
+  let close = make_rib (x,y,(Int (procedure_type))) in push_rib (close)
+;;
+
+let prim1_fields f =
+  let result = popr () in
+  push_word (f result)
+;;
+
+
+let prim2_fields f =
+  let x = pop () in
+  let y = popr () in
+  push_rib (f (x,y))
+;;
+
+let prim2_bool f =
+  let x = pop () in
+  let y = pop () in
+  let result = f(x,y) in
+  let bool_result = to_bool result in
+  push_rib bool_result
+;;
+
+let ignore (x) =
+  ();;
+
+let choose_rib_type x = match x with
+| Triplet _ -> true_rib 
+| _ -> (Triplet 1, Triplet 2, Int 5) 
+end
+;;
+
+
+let primitives_size = 20;; (* Taille hypothétique *)
+let primitives = array_create primitives_size;;
+
+primitives.(0) <- (prim3 (fun (z,y,x) -> make_rib (x,y,z)));;
+primitives.(1) <- prim1_word (fun x -> x);;
+(* primitives.(2) <- (fun () -> let x = pop () in ignore(x));; *)
+primitives.(3) <- prim2 (fun (y,x) -> y);;
+primitives.(4) <- close();;
+primitives.(5) <- prim1_rib choose_rib_type;;
+primitives.(6) <- prim1_fields get_car;;
+primitives.(7) <- prim1_fields get_cdr;;
+primitives.(8) <- prim1_fields get_tag;;
+primitives.(9) <- prim2_fields (fun (y,x) -> set_car (x,y));;
+primitives.(10) <- prim2_fields (fun (y,x) -> set_cdr (x,y));;
+primitives.(11) <- prim2_fields (fun (y,x) -> set_tag (x,y));;
+primitives.(12) <- prim2_bool (fun (y,x) -> word_eqv (x,y));; 
+primitives.(13) <- prim2_bool (fun (y,x) -> match x with
+                                        | Int a -> match y with 
+                                          | Int b -> a < b
+                                          | _ -> fatal_error "< arguments must be Ints"
+                                            end
+                                        | _ -> fatal_error "< arguments must be Ints"
+                                          end );;
+primitives.(14) <- prim2 (fun (y,x) ->
+  match x with
+  | Int a -> 
+      match y with
+      | Int b -> Int (a + b)
+      | _ -> fatal_error "+ arguments must be Ints"
+      end
+  | _ -> fatal_error "+ arguments must be Ints"
+  end
+);;
+primitives.(15) <- prim2 (fun (y,x) ->
+  match x with
+  | Int a -> (
+      match y with
+      | Int b -> Int (a - b)
+      | _ -> fatal_error "- arguments must be Ints"
+    end
+      )
+  | _ -> fatal_error "- arguments must be Ints"
+end);;
+
+primitives.(16) <- prim2 (fun (y,x) ->
+  match x with
+  | Int a -> (
+      match y with
+      | Int b -> Int (a * b)
+      | _ -> fatal_error "* arguments must be Ints"
+    end
+    )
+  | _ -> fatal_error "* arguments must be Ints"
+end);;
+primitives.(17) <- prim2 (fun (y,x) ->
+  match x with
+  | Int a -> (
+      match y with
+      | Int b -> Int (a / b)
+      | _ -> fatal_error "* quotient arguments must be Ints"
+    end
+    )
+  | _ -> fatal_error "* quotient arguments must be Ints"
+end);;
+(* primitives.(18) <- prim0 (fun () -> Int (getchar ()));; *)
+(* primitives.(19) <- prim1_word (fun Int(ch) -> Int (putchar ch) | _ -> fatal_error "putchar argument must be Int");;
+primitives.(20) <- prim1_word (fun Int(status) -> exit status | _ -> fatal_error "exit argument must be Int");; *)
+
+
+let get_rib_sym (w : word) =
+  match w with 
+    Triplet i -> ram.(i)
+  | _ -> fatal_error "get_rib_sym" 
+end
+;;
+
+let rec list_tail (ptr,i) =
+  print_string "list tail ";
+  print_int i;
+  print_newline ();
+  print_r (ram.(ptr));
+  print_newline ();
+  if 0 = i then 
+    Triplet (ptr)
+  else
+    (if is_rib_w (get_cdr (ram.(ptr))) then
+       let (car, cdr, tag) = ram.(ptr) in
+       list_tail ((get_int_triplet (cdr )),(i-1))
+     else
+       get_cdr (ram.(ptr)))
+;;
+
+
+
+
 let main() = 
-    print_string "Test";;
+print_string "Test";;
 
