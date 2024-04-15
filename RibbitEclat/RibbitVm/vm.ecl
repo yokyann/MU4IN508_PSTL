@@ -28,21 +28,29 @@ let size_ram = 90000;;
 let alloc_limit = size_ram / 2 -1;;
 
 let ram = array_create size_ram ;; 
-let tab_pointer = array_create 5;;
+let tab_pointer = array_create 1;;
+let pc2 = array_create 1;;
+let st2 = array_create 1;;
+let stbl2 = array_create 1;;
+let pos2 = array_create 1;;
+let spr2 = array_create 1;;
 
 (* program counter : indice dans la ram *)
-let pc = ref(-1);;
+let pc = 0;;
 (* le sommet de pile qui indique l'indice dasn la ram *)
-let sp = ref (size_ram);;
-let st = ref(-1);;
-let stbl = ref(-1);;
-let pos = ref(0);;
+let sp = size_ram;;
+let st = 0;;
+let stbl = 0;;
+let pos = 0;;
+let spr = sp;;
 
-tab_pointer.(0) <- pc;;
-tab_pointer.(1) <- sp;;
-tab_pointer.(2) <- st;;
-tab_pointer.(3) <- stbl;;
-tab_pointer.(4) <- pos;;
+tab_pointer.(0) <- sp;;
+
+pc2.(0) <- pc;;
+st2.(0) <- st;;
+stbl2.(0) <- stbl;;
+pos2.(0) <- pos;;
+spr2.(0) <- spr;;
 
 let make_rib (a,b,c) : rib = (a, b, c);;
 
@@ -221,17 +229,20 @@ let false_rib : rib = make_rib_of_ints (0,0,5);;
 let true_rib : rib = make_rib_of_ints (0,0,5);;
 let nil_rib : rib = make_rib_of_ints (0,0,5);;
 
-let tos = get_car(ram.(!(tab_pointer.(1))));;
+let tos = fun () -> get_car(ram.(tab_pointer.(0)));;
 
-
-let pop ()  =
-let x = get_car (ram.(!(tab_pointer.(1)))) in 
-if is_rib_w (get_cdr( ram.(!(tab_pointer.(1))))) then
-  (tab_pointer.(1)) := get_int_triplet (get_cdr (ram.(!(tab_pointer.(1)))))
-else
-  ram.(!(tab_pointer.(1))) <- (Nil(0), get_cdr( ram.(!(tab_pointer.(1)))),  get_tag( ram.(!(tab_pointer.(1))))); 
-x 
+let pop () =
+  let current_sp = tab_pointer.(0) in
+  let x = get_car (ram.(current_sp)) in
+  if is_rib_w (get_cdr(ram.(current_sp))) then
+    tab_pointer.(0) <- get_int_triplet (get_cdr (ram.(current_sp)))
+  else
+    ram.(spr2.(0)-1) <- (Nil(0), get_cdr(ram.(current_sp)), get_tag(ram.(current_sp)));
+    tab_pointer.(0) <- spr2.(0)-1;
+    spr2.(0) <- spr2.(0)-1;
+  x
 ;;
+
 
 
 let popr () = 
@@ -239,59 +250,60 @@ let popr () =
 ;;
 
 let push_rib(rib : rib) : unit =
-  let i = !(tab_pointer.(1)) in
+  let i = spr2.(0) in
   if i > alloc_limit then
     (* premier elemn de stack *)
     if i = size_ram then 
       (ram.(i-1) <- rib;
-    (tab_pointer.(1)):= i-1) 
+    tab_pointer.(0)<- i-1; spr2.(0)<- i-1) 
     else(
       ram.(i-1) <- rib;
-      ram.(i-2) <- (Triplet (i-1), Triplet (i), Int(pair_type)); 
-      (tab_pointer.(1)) := i-2) 
+      ram.(i-2) <- (Triplet (i-1), Triplet (tab_pointer.(0)), Int(pair_type)); 
+      tab_pointer.(0) <- i-2;
+      spr2.(0) <- i-2) 
   else
     fatal_error ("stack overflow")
     (* gc *)
   ;;
   
 let push_word (car : word) : unit =
-  let i = !(tab_pointer.(1)) in
+  let i = spr2.(0) in
   if i > alloc_limit then
     (* premier elemn de stack *)
-    if i = size_ram then (ram.(i-1) <- (car, Int (0), Int (pair_type)); (tab_pointer.(1)) := !(tab_pointer.(1))-1) else
-      (ram.(i-1) <- (car, Triplet (i), Int (pair_type)); (tab_pointer.(1)) := i-1)
+    if i = size_ram then (ram.(i-1) <- (car, Int (0), Int (pair_type)); tab_pointer.(0) <- tab_pointer.(0)-1; spr2.(0)<-spr2.(0)-1) else
+      (ram.(i-1) <- (car, Triplet (i), Int (pair_type)); tab_pointer.(0) <- i-1; spr2.(0) <- i-1)
   else
     fatal_error ("stack overflow")
     (* gc *)
   ;;
 
 let prim0 f =
-  let result = f () in
-  push_word result;;
+  let result2 = f () in
+  push_word result2;;
 
+let prim1 f =
+  let x = pop () in 
+  let result2 = f(x) in
+  push_word result2;;
 
-let prim1_word f =
-  let result = pop () in
-  let result_after_f = f result in
-  push_word result_after_f;;
 
 let prim1_rib f =
-  let result = pop () in
-  let result_after_f = f result in
-  push_rib result_after_f;;
+  let result2 = pop () in
+  let result2_after_f = f result2 in
+  push_rib result2_after_f;;
 
 let prim2 f =
   let x = pop () in
   let y = pop () in
-  let result_after_f = f(x,y) in
-  push_word result_after_f;;
+  let result2_after_f = f(x,y) in
+  push_word result2_after_f;;
 
 let prim3 f =
   let x = pop () in
   let y = pop () in
   let z = pop () in
-  let result_after_f = f(x,y,z) in
-  push_rib result_after_f;;
+  let result2_after_f = f(x,y,z) in
+  push_rib result2_after_f;;
 
 let to_bool = fun x -> 
   if x then true_rib else false_rib 
@@ -311,43 +323,29 @@ let to_bool = fun x ->
   c;; *)
 
 let close () =
-  let tos = popr () in
-  let x = get_car (tos) in
-  let y = get_cdr (ram.(!(tab_pointer.(1)))) in
-  let close = make_rib (x,y,(Int (procedure_type))) in push_rib (close)
-;;
-
-let prim1_fields f =
-  let result = popr () in
-  push_word (f result)
-;;
-
-
-let prim2_fields f =
-  let x = pop () in
-  let y = popr () in
-  push_rib (f (x,y))
+  let tos = tos() in
+  let x = get_car_triplet (tos) in
+  let y = get_cdr (ram.(tab_pointer.(0))) in
+  let (car, cdr, tag) = ram.(tab_pointer.(0)) in 
+   ram.(tab_pointer.(0)) <- (x, y, Int(1));
+   ram.(tab_pointer.(0)) <- (Triplet (tab_pointer.(0)),cdr, tag);
+   tab_pointer.(0) <- tab_pointer.(0) - 1
 ;;
 
 let prim2_bool f =
   let x = pop () in
   let y = pop () in
-  let result = f(x,y) in
-  let bool_result = to_bool result in
-  push_rib bool_result
+  let result2 = f(x,y) in
+  let bool_result2 = to_bool result2 in
+  push_rib bool_result2
 ;;
 
 let ignore (x) =
   ();;
 
-let choose_rib_type x = match x with
-| Triplet _ -> true_rib 
-| _ -> (Triplet 1, Triplet 2, Int 5) 
-end
-;;
 
 
-let primitives_size = 20;; (* Taille hypothétique *)
+(* let primitives_size = 20;; (* Taille hypothétique *)
 let primitives = array_create primitives_size;;
 
 primitives.(0) <- (prim3 (fun (z,y,x) -> make_rib (x,y,z)));;
@@ -410,7 +408,7 @@ primitives.(17) <- prim2 (fun (y,x) ->
     end
     )
   | _ -> fatal_error "* quotient arguments must be Ints"
-end);;
+end);; *)
 (* primitives.(18) <- prim0 (fun () -> Int (getchar ()));; *)
 (* primitives.(19) <- prim1_word (fun Int(ch) -> Int (putchar ch) | _ -> fatal_error "putchar argument must be Int");;
 primitives.(20) <- prim1_word (fun Int(status) -> exit status | _ -> fatal_error "exit argument must be Int");; *)
@@ -424,11 +422,6 @@ end
 ;;
 
 let rec list_tail (ptr,i) =
-  print_string "list tail ";
-  print_int i;
-  print_newline ();
-  print_r (ram.(ptr));
-  print_newline ();
   if 0 = i then 
     Triplet (ptr)
   else
@@ -438,7 +431,6 @@ let rec list_tail (ptr,i) =
      else
        get_cdr (ram.(ptr)))
 ;;
-
 
 
 
