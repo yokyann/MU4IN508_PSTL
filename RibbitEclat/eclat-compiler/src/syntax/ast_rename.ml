@@ -3,7 +3,8 @@ open Ast_subst
 open Pattern
 
 (* custom symbol generator *)
-module Gensym : sig val reset : unit -> unit
+module Gensym : sig val rename : x -> x
+                    val reset : unit -> unit
                     val gensym : statics:x list -> x -> x end = struct
 
   let of_int (n:int) : x =
@@ -30,15 +31,17 @@ module Gensym : sig val reset : unit -> unit
     Hashtbl.clear h
 
   let gensym ~statics x =
-    if Hashtbl.mem h x || List.mem x statics then (let y = rename x in Hashtbl.add h x y; y)
-    else (Hashtbl.add h x x; x)
+    let y = rename x in
+    if Hashtbl.mem h x || List.mem x statics then (Hashtbl.add h x y; y)
+    else (Hashtbl.add h x y; y)
 
 end
 
 open Gensym
 
 let rename_ident ~statics x =
-  gensym ~statics x
+  if List.mem x statics then x else
+  rename x
 
 (** [rename_pat p] rename all names in the pattern [p],
   assuming that any variable is bound several times in p *)

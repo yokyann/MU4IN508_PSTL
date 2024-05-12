@@ -51,7 +51,7 @@ let compile ?globalize
   let pi = Lambda_lifting.lambda_lifting_pi ?globalize pi in
   let pi = Specialize.specialize_pi pi in
   display_pi Lambda_lifting pi;
-
+let pi = Ast_rename.rename_pi pi in
   (** inline non-recursive functions *)
   let rec loop pi =
     let pi = Inline.inl_pi pi in
@@ -78,6 +78,7 @@ let compile ?globalize
   let pi = if propagation then Propagation.propagation_pi pi else pi in
   display_pi Propagation pi;
 
+ 
   (** ensure that transformations preserve typing *)
   let _ = Typing.typing_with_argument pi arg_list in
   pi
