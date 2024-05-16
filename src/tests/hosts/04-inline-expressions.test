@@ -1,9 +1,0 @@
-
-
-visible
-visible // @@(feature foobar)@@
-visible
-hidden // @@(feature disactivated)@@
-visible
-
-;;;options: -f+ foobar
