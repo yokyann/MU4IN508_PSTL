@@ -18,7 +18,7 @@ Pour tester l'implémentaiton en OCaml écrite pour la version en Eclat (on supo
 Pour debug et avoir une trace de l'exécution du programme, il suffit de modifer la variable 
     let debug = ref true
     
-Pour lancer tous les programmes du dossier 'tests': 
+Pour lancer tous les programmes du dossier 'ribbit-main/src/tests': 
     $ ./tracing.sh
 Les programmes tel que tests/50-repl.scm et tests/16-getchar.scm ne passent pas car ils ont besoin d'un input
 
