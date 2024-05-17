@@ -7,7 +7,8 @@ Etudiant 1 :  28705948   XU Marc
 Etudiant 2 :  28707630   Huynh Yok Yann  
 Etudiant 3 :  21311739   Kessal Yacine  
 
-
+La vm en OCaml se trouve dans ribbit-main/src/host/ml/rvm.ml  
+La vm en Eclat se trouve dans ribbit-main/src/host/RibbitEclat  
 Pour tester l'implémentaiton en OCaml écrite pour la version en Eclat (on supose être dans le dossier ribbit-main/src)
 
     $ ./rsc -t ml -o repl.ml repl.scm
