@@ -3,6 +3,7 @@
 let input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y";;
 (* )@@ *)
 
+
 (* modifié à true pour afficher les etapes de l'interprétation *)
 let debug = ref false
 
@@ -31,10 +32,8 @@ type rib = word * word * word
 
 type ram = rib array
 
-(* let size_ram = 20480 *)
 (* choix d'un nombre assez grand car nous n'avons pas implémenté de GC *)
 let size_ram = 900000
-let alloc_limit = size_ram / 2 -1
 
 (* la mémoire *)
 let ram : ram = Array.make size_ram (Nil, Nil, Nil)
@@ -42,7 +41,7 @@ let ram : ram = Array.make size_ram (Nil, Nil, Nil)
 let pc = ref (-1)
 (* indice vers le sommet de pile *)
 let sp = ref size_ram
-(* heap pointer *)
+(* heap pointer*)
 let hp = ref (-1)
 
 (* indice vers la table des symboles *)
@@ -344,9 +343,9 @@ let not_nil_cdr (w : word)  =
     Nil -> false
   | _ -> true
 
+(* retourne l'indice de la dernière case occupé dans lespace dédié à la création de la table des symboles *)
 let i_accum stbl st = 
   if stbl > st then stbl else st
-
 
 let push_symtbl_rib (rib : rib) :unit =
   let i = i_accum !hp !stbl in
@@ -358,26 +357,18 @@ let push_symtbl_rib (rib : rib) :unit =
 
 let push2_symtbl_word (car : word)(tag : word) : unit =
   let i = i_accum !hp !stbl in
-  if i < alloc_limit then
     (* premier elemn de stack *)
     if i = -1 then (ram.(i+2) <- (car, Int 0, tag)) else
       (ram.(i+2) <- (car, Triplet (i+1), tag))
-  else
-    invalid_arg "stack overflow push2_symtbl_word"
-(* gc *)
+
 
 let push_word_stbl (car : word) : unit =
   let i = (get_int_triplet car) in
-  if i < alloc_limit then
-
     (* premier elemn de stack *)
     if !stbl = 3 then ( (ram.(i+1) <- (car, Int 0, Int pair_type); stbl := i+1) )else
       (ram.(i+1) <- (car, Triplet (!stbl), Int pair_type); stbl := i+1)
-  else
-    invalid_arg "stack overflow push_word_stbl "
-(* gc *)
 
-
+(* récupère la taille d'une liste chainée *)
 let length lst =
   let rec aux l acc =
     if is_pair l then
@@ -393,38 +384,28 @@ let length lst =
 
 let push_symtbl (rib:rib) : unit =
   let i = i_accum !hp !stbl in
-  if i < alloc_limit then
     (* premier elemn de stack *)
     (ram.(i+1) <- rib;
      hp := i+1)
-  else
-    invalid_arg "stack overflow push_symtbl"
-(* gc *)
+
 
 let create_sym (i:int)= 
-  (* rib *list = alloc_rib(name, lst_length(name), STRING_TAG); *)
+  (* création d'un objet de type string associé à la chaine de caractère récupérée du bytecode*)
   let len = length ram.(i) in
   push_symtbl_rib (make_rib (Triplet i) (Int len) (Int string_type));
 
-  (* rib *sym = alloc_rib(FALSE, TAG_RIB(list), SYMBOL_TAG); *)
+  (* création d'un objet de type symbole associé  *)
   push2_symtbl_word (Triplet 3) (Int symbol_type);
   let x = i_accum !hp !stbl in 
 
-  (* rib *root = alloc_rib(TAG_RIB(sym), symbol_table, PAIR_TAG); *)
+  (* Ajout de ce symbole à la table des symboles *)
   push_word_stbl (Triplet (x+2)) 
 
 
 let push_symtbl_word_accum (car: word) (cdr:word) =
   let i = i_accum !hp !stbl in
-  if i < alloc_limit then
-    (* premier elemn de stack *)
-    (
       ram.(i+1) <- (car, cdr, Int pair_type);
-      hp := i+1)
-  else
-    invalid_arg "stack overflow push_symtbl_word_accum"
-(* gc *)
-
+      hp := i+1
 
 (* construction de la table des symboles *)
 let build_symtbl () : unit =
@@ -523,6 +504,7 @@ let push_heap_copy (rib : rib) : unit =
 
 (* construction du graphe d'instructions *)
 let decode = function () ->(
+  (* opcodes *)
     let codes = [| 20; 30; 0; 10; 11; 4 |]
     in
     let rec decode_loop () : word = 
@@ -633,11 +615,10 @@ let setup_stack = function () ->
 
 
 
-
+(* pointe pc vers la prochaine instruction *)
 let advance_pc = function () -> 
   let tag = get_tag_triplet (Triplet !pc) in
   match tag with 
-  | Int i -> pc := !stbl;
   | Triplet t -> pc := get_int_triplet tag
   | _ -> invalid_arg "advance_pc"
 
@@ -648,12 +629,9 @@ let get_cont  = function () ->
       ( 
       loop (get_cdr_triplet s))
     | Triplet t -> 
-      
       s
     | _ -> invalid_arg "get_cont 2"
   in loop (Triplet !sp)
-
-
 
 (* Decodage de la RVM *)
 let rec run () =  
@@ -736,13 +714,10 @@ let rec run () =
         primitives.(i) () ;
         if next = Int 0 then (
            (* jump *)
-
           pc := get_int_triplet (get_cont());
-          
           let (car, cdr, tag) = ram.(!sp) in 
           push_heap (car, get_car_triplet (Triplet !pc), tag);
           sp := !hp;
-
         )
         ;
         advance_pc();
@@ -958,4 +933,3 @@ setup_stack();;
 
 
 run();; 
-
