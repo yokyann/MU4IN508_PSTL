@@ -35,7 +35,7 @@ type ram = rib array
 (* choix d'un nombre assez grand car nous n'avons pas implémenté de GC *)
 let size_ram = 900000
 
-(* la mémoire *)
+(* la mémoire : tableau de rib*)
 let ram : ram = Array.make size_ram (Nil, Nil, Nil)
 (* indice vers le flux d'instruction *)
 let pc = ref (-1)
