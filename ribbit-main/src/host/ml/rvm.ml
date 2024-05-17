@@ -425,7 +425,7 @@ let push_symtbl_word_accum (car: word) (cdr:word) =
 (* gc *)
 
 
-(* debug *)
+(* construction de la table des symboles *)
 let build_symtbl () : unit =
 
   (* Caractere de fin de chaine *)
@@ -442,12 +442,15 @@ let build_symtbl () : unit =
         let x = get_byte () in 
         (* on a ',' séparation des symboles *)
         if x = 44 then ( 
+          (* création du symbole *)
           create_sym(i); 
+          (* début du prochain symbole *)
           push_symtbl nil_rib;
           loop3(!hp)) else
         (* ';' Fin de la liste des symboles *)
         if x=59 then 
           (
+            (* dernier symbole *)
           create_sym(i);
           )
         else(
@@ -486,8 +489,7 @@ let push_stack_r rib =
     )
 (* gc *)
 
-
-let   push_heap_copy (rib : rib) : unit =
+let push_heap_copy (rib : rib) : unit =
 
   let i = !pc in
   let rec push_heap_stack (w : word) : word =
@@ -505,6 +507,7 @@ let   push_heap_copy (rib : rib) : unit =
       | _ -> invalid_arg "fail push heap copy Nil"
         
     in
+    (* p : un rib dans la pile qui doit être copié dans le graphe d'instruction *)
       let (car, cdr, p) = rib in 
       match p with 
       | Int _ -> 
@@ -517,7 +520,7 @@ let   push_heap_copy (rib : rib) : unit =
       | _ -> invalid_arg "push_heap_copy"
 
 
-
+(* construction du graphe d'instructions *)
 let decode = function () ->(
     let codes = [| 20; 30; 0; 10; 11; 4 |]
     in
@@ -842,17 +845,13 @@ let rec run () =
     let x = tos() in 
 
     (match opnd with
-       Int i -> 
-       let lt = list_tail !sp i in
-       let (car, cdr, tag) = ram.(get_int_triplet lt) in 
-      
-       ram.(get_int_triplet lt) <- (x, cdr, tag);
-       
-     | Triplet t -> let (car, cdr, tag) = ram.(t) in 
-      
-       ram.(t) <- (x, cdr, tag);
-       
-     | _ -> invalid_arg "set_var");
+      Int i -> 
+        let lt = list_tail !sp i in
+        let (car, cdr, tag) = ram.(get_int_triplet lt) in 
+        ram.(get_int_triplet lt) <- (x, cdr, tag);
+      | Triplet t -> let (car, cdr, tag) = ram.(t) in 
+        ram.(t) <- (x, cdr, tag);
+      | _ -> invalid_arg "set_var");
 
     get_next_stack();
     advance_pc();
@@ -908,7 +907,8 @@ let rec run () =
     run()
 
   | Int 5 -> 
-    Printf.printf "--- Halt\n";
+    if !debug then 
+      (Printf.printf "--- Halt\n")
 
   | _ -> failwith "not yet implemented in run "
 
