@@ -32,21 +32,22 @@ type rib = word * word * word
 type ram = rib array
 
 (* let size_ram = 20480 *)
+(* choix d'un nombre assez grand car nous n'avons pas implémenté de GC *)
 let size_ram = 900000
 let alloc_limit = size_ram / 2 -1
 
 (* la mémoire *)
-let ram : ram = Array.make size_ram (Nil, Nil, Nil)  (* Déclaration de la variable globale ram *)
-(* program counter : indice dans la ram *)
+let ram : ram = Array.make size_ram (Nil, Nil, Nil)
+(* indice vers le flux d'instruction *)
 let pc = ref (-1)
-(* le sommet de pile qui indique l'indice dasn la ram *)
+(* indice vers le sommet de pile *)
 let sp = ref size_ram
-
+(* heap pointer *)
 let hp = ref (-1)
+
+(* indice vers la table des symboles *)
 let stbl = ref (-1)
 let pos = ref 0
-
-
 
 let make_rib (a:word) (b:word) (c: word) : rib = (a, b, c)
 
