@@ -1,58 +1,65 @@
+(* Allocation d'un tableau d'entrée de taille 9000 *)
 let input = array_create 9000 ;; 
 
 (* Constantes pour les types *)
-let pair_type = 0;;
-let procedure_type = 1;;
-let symbol_type = 2;;
-let string_type = 3;;
-let vector_type = 4;;
-let singleton_type = 5;;
+let pair_type = 0;;         (* Type pour les paires *)
+let procedure_type = 1;;    (* Type pour les procédures *)
+let symbol_type = 2;;       (* Type pour les symboles *)
+let string_type = 3;;       (* Type pour les chaînes *)
+let vector_type = 4;;       (* Type pour les vecteurs *)
+let singleton_type = 5;;    (* Type pour les singletons *)
 
+(* Constantes pour les instructions de la VM *)
+let instr_jc = 0;;          (* Instruction jump if condition *)
+let instr_set = 1;;         (* Instruction set variable *)
+let instr_get = 2;;         (* Instruction get variable *)
+let instr_const = 3;;       (* Instruction pour une constante *)
+let instr_if = 4;;          (* Instruction if condition *)
+let instr_halt = 5;;        (* Instruction halt, arrête l'exécution *)
 
-let instr_jc = 0;;
-let instr_set = 1;;
-let instr_get = 2;;
-let instr_const = 3;;
-let instr_if = 4;;
-let instr_halt = 5;;
-
+(* Définition d'un type de mot dans la VM *)
 type word = 
-   Nil of unit
-  | Int of int<32>
-  | Triplet of int<32>  
+   Nil of unit             (* Valeur nulle *)
+  | Int of int<32>         (* Entier de 32 bits *)
+  | Triplet of int<32>     (* Référence à une rib dans la RAM *)
 ;;
 
+(* Définition d'un type rib comme une triplet de mots *)
 type rib = word * word * word ;;
 
-
+(* Taille de la RAM et limite d'allocation pour le GC *)
 let size_ram = 9000;;
 let alloc_limit = size_ram / 2 -1;;
 
+(* Allocation de la RAM et initialisation des registres *)
 let ram = array_create size_ram ;; 
-let sp = array_create 1;;
-let pc = array_create 1;;
-let stbl = array_create 1;;
-let pos = array_create 1;;
-let hp = array_create 1;;
+let sp = array_create 1;;    (* Pile *)
+let pc = array_create 1;;    (* Compteur de programme *)
+let stbl = array_create 1;;  (* Table des symboles *)
+let pos = array_create 1;;   (* Position dans l'entrée *)
+let hp = array_create 1;;    (* Pointeur de tas *)
 
-(* program counter : indice dans la ram *)
-pc.(0) <- -1;;
-(* le sommet de pile qui indique l'indice dasn la ram *)
-sp.(0) <- size_ram;;
-stbl.(0) <- -1;;
-pos.(0) <- 0;;
-hp.(0) <- -1;;
+(* Initialisation des registres *)
+pc.(0) <- 0;;              (* Compteur de programme commence à 0 *)
+sp.(0) <- size_ram;;       (* Pile commence à la fin de la RAM *)
+stbl.(0) <- 0;;            (* Table des symboles commence à 0 *)
+pos.(0) <- 0;;             (* Position dans l'entrée commence à 0 *)
+hp.(0) <- 0;;              (* Pointeur de tas commence à 0 *)
 
+(* Fonction pour créer une rib *)
 let make_rib (a,b,c) : rib = (a, b, c);;
 
+(* Fonction pour vérifier si un mot est une rib *)
 let is_rib_w (r:word) : bool = match r with 
   | Triplet _ -> true 
   | _ -> false
 end
 ;;
+
+(* Exemple de création d'une rib *)
 let my_rib: rib = (Int(1), Nil(), Triplet(255));;
 
-
+(* Fonction pour obtenir la valeur entière d'un mot *)
 let int_val (n) = 
   match n with 
   | Int(i) -> i
@@ -60,8 +67,7 @@ let int_val (n) =
   end
 ;;
 
-
-
+(* Fonction pour obtenir l'index d'une triplet *)
 let get_int_triplet (x : word) = 
   match x with 
     Triplet i -> i 
@@ -69,6 +75,7 @@ let get_int_triplet (x : word) =
 end
 ;; 
 
+(* Fonction pour obtenir une rib à partir d'un mot *)
 let get_rib (r : word ) : rib =
   match r with 
   | Triplet i -> ram.(i)
@@ -76,6 +83,7 @@ let get_rib (r : word ) : rib =
 end
 ;;
 
+(* Fonctions d'affichage pour les ribs et les mots *)
 let print_separator () = 
   print_string ",";;
 
@@ -99,6 +107,7 @@ let rec print_value v =
   end
 ;;
 
+(* Fonction pour afficher une rib *)
 let print_rib rib =
   let (a, b, c) = rib in
   print_open_bracket ();
@@ -108,15 +117,7 @@ let print_rib rib =
   print_close_bracket ()
 ;;
 
-
-let print_r (ri:rib) :unit= 
-  let (car, cdr, tag) = ri in 
-    print_string " car : "; print_value car ; 
-    print_string " cdr : "; print_value cdr;
-    print_string " tag : "; print_value tag;
-    print_newline ();;
-
-(* j'ai enleve la verification pour nil parce que je dois tout changer en unit *)
+(* Fonction pour vérifier l'équivalence de deux mots *)
 let word_eqv (a, b) : bool =
   match a with
   | Int ia -> 
@@ -136,22 +137,19 @@ let word_eqv (a, b) : bool =
 end
 ;;
 
+(* Fonction pour vérifier l'équivalence de deux ribs *)
 let rib_eq (a,b) : bool = 
   let (a1, a2, a3) = a in 
   let (b1, b2, b3) = b in 
   word_eqv(a1,b1) && word_eqv(a2,b2) && word_eqv(a3,b3)
 ;;
 
-
-
+(* Fonctions pour accéder aux éléments d'une rib *)
 let get_car (rib:rib) : word= 
   let(a,b,c) = rib in 
   a;;
 
-let set_car (rib,w) = 
-  let(a,b,c) = rib in
-  (w,b,c);; 
-
+(* Fonction pour définir le car d'une triplet *)
 let set_car_triplet (rib,newval) = 
   match rib with 
   | Triplet (i) -> let (car, cdr, tag) = ram.(i) in ram.(i) <- (newval, cdr, tag); newval
@@ -159,6 +157,7 @@ let set_car_triplet (rib,newval) =
 end
 ;;
 
+(* Fonction pour obtenir le car d'une triplet *)
 let get_car_triplet (rib : word) : word =
   match rib with 
   | Triplet t -> let (v1, v2, v3) = ram.(t) in 
@@ -167,11 +166,13 @@ let get_car_triplet (rib : word) : word =
 end
 ;;
 
+(* Fonctions pour accéder au cdr et tag d'une rib *)
 let get_cdr (rib : rib) : word=
   let (_,cdr,_) = rib in
   cdr
 ;;
 
+(* Fonction pour définir le cdr d'une triplet *)
 let set_cdr_triplet (rib,newval) = 
   match rib with
   | Triplet i -> let (car,cdr,tag) = ram.(i) in ram.(i) <- (car, newval, tag); newval
@@ -179,18 +180,20 @@ let set_cdr_triplet (rib,newval) =
 end
 ;;
 
+(* Fonction pour obtenir le cdr d'une triplet *)
 let get_cdr_triplet (rib:word) : word = 
   match rib with 
   | Triplet(t) -> let (v1, v2, v3) = ram.(t) in 
       v2
   | _ -> fatal_error "get_cdr_triplet expected a triplet"
 end;;
-  
+
+(* Fonction pour obtenir le tag d'une rib *)
 let get_tag (rib:rib) : word= 
   let(_,_,tag) = rib in 
   tag;;
 
-
+(* Fonction pour obtenir le tag d'une triplet *)
 let get_tag_triplet (rib : word) : word = 
   match rib with 
   | Triplet t -> let (v1, v2, v3) = ram.(t) in 
@@ -198,19 +201,23 @@ let get_tag_triplet (rib : word) : word =
   | _ -> fatal_error("get_tag_triplet expected a triplet")
 end;;
 
+(* Fonction pour définir le tag d'une triplet *)
 let set_tag_triplet (rib,newval) = 
   match rib with
   | Triplet i -> let (car,cdr,tag) = ram.(i) in ram.(i) <- (car, cdr, newval); newval
   | _ -> fatal_error "set cdr triplet expected a triplet"
 end;;
 
+(* Fonctions pour créer des ribs de base *)
 let make_rib_of_ints (a,b,c) = (Int a, Int b, Int c);;
 let false_rib : rib = make_rib_of_ints (0,0,5);;
 let true_rib : rib = make_rib_of_ints (0,0,5);;
 let nil_rib : rib = make_rib_of_ints (0,0,5);;
 
+(* Fonction pour obtenir le sommet de la pile *)
 let tos = fun () -> get_car(ram.(sp.(0)));;
 
+(* Fonction pour dépiler un élément *)
 let pop () =
   let current_sp = sp.(0) in
   let x = get_car (ram.(current_sp)) in
@@ -223,13 +230,14 @@ let pop () =
   x
 ;;
 
-
+(* Fonction pour empiler un rib dans le tas *)
 let push_heap rib = 
   let i = hp.(0) in 
   ram.(i-1) <- rib; 
   hp.(0) <- i-1 
 ;;
 
+(* Fonction pour empiler un mot *)
 let push_word (car : word) : unit =
   if word_eqv ((Triplet (hp.(0)-1)) ,(get_car (ram.(1))))  then
     fatal_error "stack overflow push_word"
@@ -244,8 +252,7 @@ let push_word (car : word) : unit =
       hp.(0) <- hp.(0)-1;
       sp.(0) <- hp.(0));;
 
-
-
+(* Fonction pour empiler un rib *)
 let push_rib(rib : rib) : unit =
   if word_eqv ((Triplet (hp.(0)-1)) ,(get_car (ram.(1))))  then
     fatal_error "stack overflow push_rib"
@@ -260,9 +267,8 @@ let push_rib(rib : rib) : unit =
       hp.(0) <- (hp.(0)) -1;
       push_word (Triplet (hp.(0)))
     );;
-  
 
-
+(* Fonction pour afficher une rib avec une profondeur maximale *)
 let rec show_rib (rib,prof,i) =
   if i > prof then 
     if is_rib_w (rib) then 
@@ -286,6 +292,7 @@ let rec show_rib (rib,prof,i) =
   end
 ;;  
 
+(* Fonctions primitives pour la manipulation des mots et ribs *)
 let prim0 f =
   let result2 = f () in
   push_word result2;;
@@ -294,7 +301,6 @@ let prim1 f =
   let x = pop () in 
   let result2 = f(x) in
   push_word result2;;
-
 
 let prim1_rib f =
   let result2 = pop () in
@@ -315,6 +321,7 @@ let prim3 f =
   let result2_after_f = f(x,y,z) in
   push_rib result2_after_f;;
 
+(* Fonction pour convertir une valeur booléenne en rib *)
 let to_bool = fun x -> 
   if x then true_rib else false_rib 
 ;;
@@ -327,19 +334,7 @@ let prim2_bool f =
   push_rib bool_result2
 ;;
 
-(* let getchar () =
-  try
-    input_char stdin |> int_of_char
-  with End_of_file -> -1
-;; *)
-
-(* let putchar c =
-  print_string "putchar ";
-  let char_to_print = char_of_int c in
-  print_string char_to_print;
-  flush stdout;
-  c;; *)
-
+(* Fonction pour obtenir la prochaine adresse de pile *)
 let get_next_stack = fun () ->
   if is_rib_w (get_cdr_triplet (Triplet (sp.(0)))) then
     sp.(0) <- get_int_triplet (get_cdr_triplet (Triplet (sp.(0))))
@@ -347,6 +342,7 @@ let get_next_stack = fun () ->
     fatal_error "get_next_stack"
   ;;
 
+(* Fonction pour fermer une procédure *)
 let close () =
   let tos = tos() in
   let x = get_car_triplet (tos) in
@@ -360,15 +356,7 @@ let close () =
   get_next_stack();
   push_rib (x, y, Int 1);;
 
-
-
-(* primitives.(5) <- prim1_rib (fun x -> match x with
-  | Triplet _ -> true_rib 
-  | _ -> (Triplet 1, Triplet 2, Int 5)
-end);; *)
-let ignore (x) =
-  ();;
-
+(* Fonction pour appliquer une primitive *)
 let apply_prim2 (index) =
   match index with
   | 0 -> prim3 (fun (z, y, x) -> make_rib (x, y, z))
@@ -419,14 +407,10 @@ let apply_prim2 (index) =
                                 | _ -> fatal_error "quotient arguments must be Ints"
                               end
                               | _ -> fatal_error "quotient arguments must be Ints" end) 
-  
-  (* | 18 -> prim0 (function () -> Int (getchar ()));
-  | 19 -> prim1 (function Int ch -> Int (putchar ch) | _ -> fatal_error "putchar argument must be Int");  
-  | 20 -> prim1 (function Int status -> exit status | _ -> fatal_error "exit argument must be Int")            *)
   | _ -> fatal_error "Invalid primitive index"
 end;; 
 
-
+(* Fonction pour obtenir le dernier élément d'une liste *)
 let rec list_tail (ptr,i) =
   if 0 = i then 
     Triplet (ptr)
@@ -438,20 +422,24 @@ let rec list_tail (ptr,i) =
       fatal_error "list_tail")
 ;;
 
+(* Fonction pour obtenir un octet de l'entrée *)
 let get_byte = fun () ->
   let c = input.(pos.(0)) in
   pos.(0) <- pos.(0) + 1; c;;
 
+(* Fonction pour obtenir un code à partir d'un octet *)
 let get_code () =
   let x = (get_byte ()) - 35 in if x < 0 then 57 else x
 ;;
 
+(* Fonction pour obtenir un entier à partir d'un code *)
 let rec get_int n =
   let x = get_code () in
   let n = n * 46 in
   if x < 46 then n + x else get_int (n + x - 46)
 ;;
 
+(* Fonction pour vérifier si un mot est une paire *)
 let is_pair (n) = 
   let (a, b, c) = n in
   let l = 0 in
@@ -461,14 +449,10 @@ let is_pair (n) =
 end 
 ;;
 
-let not_nil_cdr (w : word)  =
-  match w with 
-    Nil () -> false
-  | _ -> true
-end;;
-
+(* Fonction pour obtenir l'accumulateur *)
 let i_accum (stbl,st) = if stbl > st then stbl else st;;
 
+(* Fonction pour empiler une rib dans la table des symboles *)
 let push_symtbl_rib (rib : rib) :unit =
   let i = i_accum (hp.(0),stbl.(0)) in
   if i < size_ram then
@@ -478,6 +462,7 @@ let push_symtbl_rib (rib : rib) :unit =
     (* gc *)
 ;;
 
+(* Fonction pour empiler un mot et son tag dans la table des symboles *)
 let push2_symtbl_word (car,tag) : unit =
   let i = i_accum (hp.(0),stbl.(0)) in
   if i < alloc_limit then
@@ -489,6 +474,7 @@ let push2_symtbl_word (car,tag) : unit =
     (* gc *)
 ;;
 
+(* Fonction pour empiler un mot dans la table des symboles *)
 let push_word_stbl (car : word) : unit =
   let i = (get_int_triplet car) in
   if i < alloc_limit then
@@ -501,6 +487,7 @@ let push_word_stbl (car : word) : unit =
     (* gc *)
   ;;
 
+(* Fonction pour obtenir la longueur d'une liste *)
 let length lst =
   let rec aux (l,acc) =
     if is_pair l then
@@ -515,6 +502,7 @@ let length lst =
   aux (lst,0)
 ;;
 
+(* Fonction pour empiler une rib dans la table des symboles *)
 let push_symtbl (rib:rib) : unit =
   let i = i_accum (hp.(0),stbl.(0)) in
   if i < alloc_limit then
@@ -525,7 +513,7 @@ let push_symtbl (rib:rib) : unit =
     (* gc *)
 ;;
 
-
+(* Fonction pour créer un symbole *)
 let create_sym (i)= 
   let len = length (ram.(i)) in
   push_symtbl_rib (make_rib ((Triplet i),(Int len),(Int string_type)));
@@ -534,6 +522,7 @@ let create_sym (i)=
   push_word_stbl (Triplet (x+2)) 
 ;;
 
+(* Fonction pour empiler un mot accumulé dans la table des symboles *)
 let push_symtbl_word_accum (car,cdr) =
   let i = i_accum (hp.(0),stbl.(0)) in
   if i < alloc_limit then
@@ -545,7 +534,7 @@ let push_symtbl_word_accum (car,cdr) =
     (* gc *)
   ;;
 
-
+(* Fonction pour construire la table des symboles *)
 let build_symtbl () : unit =
 push_symtbl nil_rib;
 
@@ -574,16 +563,18 @@ let n = get_int 0 in (
   loop1 n)
 ;;
 
+(* Fonction pour définir une variable globale *)
 let set_global (value:rib) = 
   push_symtbl_rib value;
   set_car_triplet (get_car_triplet ((Triplet (stbl.(0)))),(Triplet (hp.(0))));;
 
-
+(* Fonction pour empiler une rib dans le programme *)
 let push_prog_r (rib : rib) : unit =
   let i = pc.(0) in
   ram.(i+1) <- rib;
   pc.(0) <- i+1;;
 
+(* Fonction pour empiler une rib dans la pile *)
 let push_stack_r rib =
   let i = hp.(0) in 
   if word_eqv ((Triplet (hp.(0)-2)), (get_car (ram.(1))))  then 
@@ -597,8 +588,7 @@ let push_stack_r rib =
       sp.(0) <- hp.(0)
     );;
 
-
-
+(* Fonction pour empiler une copie de heap *)
 let   push_heap_copy (rib : rib) : unit =
 let i = pc.(0) in
 let rec push_heap_stack (w : word) : word =
@@ -630,7 +620,7 @@ let rec push_heap_stack (w : word) : word =
     | _ -> fatal_error "push_heap_copy"
     end;;
 
-
+(* Taille et initialisation du tableau de codes *)
 let codes_size = 6;;
 let codes = array_create codes_size;;
 codes.(0) <- 20;;
@@ -640,16 +630,14 @@ codes.(3) <- 10;;
 codes.(4) <- 11;;
 codes.(5) <- 4;;
 
-
-
+(* Fonction pour obtenir un symbole *)
 let sym n =
   let l = list_tail ((stbl.(0)), n) in
   let car = get_car_triplet l in
   car
 ;;
 
-
-
+(* Fonction pour calculer l'opérande *)
 let calcul_opnd (n, d, op) =
   if n < d then (
     if op < 3 then (sym n) else (Int n))
@@ -659,85 +647,80 @@ let calcul_opnd (n, d, op) =
     sym (get_int (n-d-1)))
 ;;
 
+(* Fonction pour ajouter une instruction *)
 let add_instruction (op, opnd) =
   let x = make_rib (Int op, opnd, tos ()) in
   push_stack_r x
 ;;
 
-
-  let decode_loop () =
-
-    let x = get_code () in
-    let rec loop (op,n) = 
-      let d = codes.(op) 
-      in
-      if (d+2) < (int_val n) then
-        ( 
-          loop ((op + 1),(Int ((int_val n)-(d+3))))
-      )
-      else
-      if 90 < get_code () then (
-        let tos = tos() in
-        get_next_stack();
-        add_instruction (4,tos);
-        loop (0 ,(Int (get_code ()))))
-      else 
-        (  
-          if op = 0 then (  
-            (
-            push_word (Int 0) 
-            )
-            
-          )else (
-            print_newline ()
-            );
-          let opnd = calcul_opnd ((int_val n),d,op) in
-  
-          if 4 < op then
-            (
-              let p = pop() in 
-              push_heap_copy (make_rib (opnd,(Int 0),(p))) ;
-              push_prog_r (make_rib ((Triplet (pc.(0))), (Triplet 1) ,(Int procedure_type)));
-
-              if rib_eq (make_rib (Nil (), Int 0, Int 0), ram.(sp.(0))) then
-                (* (Triplet (pc.(0)); *)
-                (add_instruction (instr_const,(Triplet (pc.(0))));
-                 loop (0 ,(Int (get_code ()))))
-              else
-                (add_instruction (instr_const,(Triplet (pc.(0))));
-                 loop (0 ,(Int (get_code ()))))
-              )
-          else(
-            if (0<op) then
-              (
-                add_instruction ((op-1),opnd);
+(* Boucle de décodage des instructions *)
+let decode_loop () =
+  let x = get_code () in
+  let rec loop (op,n) = 
+    let d = codes.(op) 
+    in
+    if (d+2) < (int_val n) then
+      ( 
+        loop ((op + 1),(Int ((int_val n)-(d+3))))
+    )
+    else
+    if 90 < get_code () then (
+      let tos = tos() in
+      get_next_stack();
+      add_instruction (4,tos);
+      loop (0 ,(Int (get_code ()))))
+    else 
+      (  
+        if op = 0 then (  
+          (
+          push_word (Int 0) 
+          )
+        )else (
+          print_newline ()
+          );
+        let opnd = calcul_opnd ((int_val n),d,op) in
+        if 4 < op then
+          (
+            let p = pop() in 
+            push_heap_copy (make_rib (opnd,(Int 0),(p))) ;
+            push_prog_r (make_rib ((Triplet (pc.(0))), (Triplet 1) ,(Int procedure_type)));
+            if rib_eq (make_rib (Nil (), Int 0, Int 0), ram.(sp.(0))) then
+              (add_instruction (instr_const,(Triplet (pc.(0))));
                 loop (0 ,(Int (get_code ()))))
             else
-              (
-                add_instruction (0,opnd);
+              (add_instruction (instr_const,(Triplet (pc.(0))));
                 loop (0 ,(Int (get_code ()))))
-        ) )
-            in
-            loop (0 ,(Int (get_code ())));;
-  
-  let decode () =
-    let main_proc = decode_loop() in
-    let d = get_car_triplet main_proc in
-    let f = get_tag_triplet d in
-    pc.(0) <- get_int_triplet f
-  ;;
-  
+            )
+        else(
+          if (0<op) then
+            (
+              add_instruction ((op-1),opnd);
+              loop (0 ,(Int (get_code ()))))
+          else
+            (
+              add_instruction (0,opnd);
+              loop (0 ,(Int (get_code ()))))
+      ) )
+    in
+    loop (0 ,(Int (get_code ())));;
 
+(* Fonction pour décoder le programme *)
+let decode () =
+  let main_proc = decode_loop() in
+  let d = get_car_triplet main_proc in
+  let f = get_tag_triplet d in
+  pc.(0) <- get_int_triplet f
+;;
 
+(* Fonction pour obtenir une variable *)
+let get_var opnd = 
+match opnd with 
+| Triplet _ -> get_car_triplet opnd
+| Int i -> get_car_triplet (list_tail ((sp.(0)),i))
+| _ -> fatal_error "get_var"
+end;;
 
-
- let get_var opnd = 
-  match opnd with 
-  | Triplet _ -> get_car_triplet opnd
-  | Int i -> get_car_triplet (list_tail ((sp.(0)),i))
-  | _ -> fatal_error "get_var"
- end;;
- 
+(* Fonction pour initialiser la pile *)
 let setup_stack = fun () ->
   let f = hp.(0) in
   (* False rib *)
@@ -753,6 +736,7 @@ let setup_stack = fun () ->
   hp.(0) <- hp.(0) - 2;
   sp.(0) <- hp.(0);;
 
+(* Fonction pour avancer le compteur de programme *)
 let advance_pc = fun () -> 
   let tag = get_tag_triplet (Triplet (pc.(0))) in
   match tag with 
@@ -761,7 +745,7 @@ let advance_pc = fun () ->
   | _ -> fatal_error "advance_pc"
 end;;
 
-
+(* Fonction pour obtenir la continuation *)
 let get_cont  = fun () ->
   let rec loop (s) =
     let tag = get_tag_triplet s in 
@@ -777,10 +761,7 @@ let get_cont  = fun () ->
   in loop (Triplet (sp.(0)))
 ;;
 
-
-
-
-(* RUN *)
+(* Fonction principale de la VM *)
 let rec run () =  
   let instr = get_car_triplet (Triplet (pc.(0))) in
   let opnd = get_cdr_triplet (Triplet (pc.(0))) in
@@ -876,9 +857,6 @@ let rec run () =
           if word_eqv(next,(Int 0)) then (
             (* jump *)
             pc.(0) <- get_int_triplet (get_cont());
-            (* push_heap (get_rib (get_cont()));
-            pc := !hp; *)
-            
             print_string "\n";
             let (car, cdr, tag) = ram.(sp.(0)) in 
             push_heap (car, get_car_triplet (Triplet (pc.(0))), tag);
@@ -901,11 +879,8 @@ let rec run () =
           print_string "\n";
           (* calling a lambda *)
           let nparams = (int_val (get_car_triplet code)) / 2 in
-          (* besoin d'un endroit où la stocker car elle va etre modifié *)
           push_heap (Int nparams, Int 0, Int 0);
           let np = hp.(0) in
-          (* ram.(p+1) <- (Int nparams, Int 0, Int 0); *)
-          (* @@(feature arity-check *)
           let vari = (int_val (get_car_triplet code)) mod 2 in
           print_string "vari :" ; print_int(vari); print_string("\n");
           print_string "nparams :" ;print_int nparams; print_string("\n");
@@ -935,14 +910,12 @@ let rec run () =
                   ram.(np) <- (Int (nparams+1), Int 0, Int 0)
                 )
               in
-              (* build_rest nil_rib; *)
               push_heap nil_rib;
               rest_loop (Triplet ((hp.(0))),(nargs-nparams))
             );
             
             let new_cont = make_rib ((Int 0),(proc),(Int 0)) in
             push_heap new_cont;
-            (* on garde le pointeur vers new-cont *)
             let nc = hp.(0) in
             let rec loop (nparams ,new_stack) =  
               if 0 < nparams then 
@@ -956,7 +929,6 @@ let rec run () =
                   let (car, cdr, tag) = ram.(nc) in 
                   ram.(nc) <- ((Triplet (sp.(0))), cdr, next)
                 )else(
-                  (* jump *)
                   let k = get_cont() in
                   let (car, cdr, tag) = ram.(nc) in
                   ram.(nc) <- ((get_car_triplet k), cdr, (get_tag_triplet k))
@@ -965,11 +937,7 @@ let rec run () =
                 print_string "printed tag dfe code\n";
                 pc.(0) <- get_int_triplet (get_tag_triplet (code));
                 sp.(0) <- get_int_triplet (new_stack);
-                (* ram.(!sp-1) <- get_rib (new_stack);
-                sp := !sp -1; *)
-              
                 show_rib ((Triplet (sp.(0))),3,0)
-                
               )
           in 
           let nparams = int_val (get_car_triplet (Triplet (np))) in
@@ -1023,7 +991,6 @@ let rec run () =
 
     | 2 -> 
       print_string "--- get\n";
-
       print_string "printing  instr : \n";
       show_rib (instr,3,0);
       print_string "\nprinting  opnd : \n";
@@ -1031,7 +998,6 @@ let rec run () =
       print_string "\nprinting  next : \n";
       show_rib (next, 3 ,0);
       print_string "\n";
-  
       print_string "printing  pc :"; print_int (pc.(0));
       show_rib ((Triplet (pc.(0))),4,0);
       print_string "\nprinting  sp :"; print_int (sp.(0));
@@ -1039,18 +1005,15 @@ let rec run () =
       print_string "\n";
       let x = get_var opnd in
       push_word x;
-  
       advance_pc();
       print_string "printing  pc fin de get (next instruction) :"; print_int(pc.(0)); print_string "\n";
       show_rib ((Triplet (pc.(0))) ,4, 0);
-  
       show_rib ((Triplet( sp.(0))) ,4, 0);
       print_string "\n";
       run()
       
     | 4 -> 
       print_string "--- if\n";
-
       print_string "printing  instr : \n";
       show_rib (instr, 3, 0);
       print_string "\nprinting  opnd : \n";
@@ -1079,10 +1042,8 @@ let rec run () =
   | _ -> fatal_error "not yet implemented in run "
   end;;
 
-
-
-
-(* let set_global (value:word) = 
+(* Fonction pour définir une variable globale *)
+let set_global (value:word) = 
   let car = get_car_triplet (Triplet (stbl.(0))) in
   let (_, cdr, tag) = ram.(get_int_triplet car) in
   ram.(get_int_triplet car) <- (value, cdr, tag);
@@ -1106,7 +1067,7 @@ hp.(0) <- sp.(0);;
 set_global (Triplet (0));;
 set_global (Triplet (3));;
 set_global (Triplet (1));;
-set_global (Triplet (2));; *)
+set_global (Triplet (2));;
 
 (* let (car, cdr, tag) = ram.(0) in ram.(0) <- (car, (Triplet (stbl.(0))), tag);; *)
 
@@ -1114,7 +1075,7 @@ set_global (Triplet (2));; *)
 
 (* run();;  *)
 
+(* Fonction principale *)
 let main() = 
-print_string "Compilation reussi, pas de bug dans la syntaxe "; print_newline();;
-
-
+  print_string "Compilation reussi, pas de bug dans la syntaxe "; 
+  print_newline();;
